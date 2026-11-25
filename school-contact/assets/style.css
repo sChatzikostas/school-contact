@@ -1,0 +1,91 @@
+.sc21-form-wrap { box-sizing: border-box; max-width: 720px; margin: 1.5rem auto; padding: 1.25rem; border: 1px solid #dcdcde; border-radius: 8px; background: #fff; color: #1d2327; }
+.sc21-form-wrap *, .sc21-admin * { box-sizing: border-box; }
+.sc21-form p { margin: 0 0 1rem; }
+.sc21-form label, .sc21-admin label { display: block; margin-bottom: .35rem; font-weight: 600; }
+.sc21-form input:not([type]), .sc21-form input[type="text"], .sc21-form input[type="email"], .sc21-form select, .sc21-form textarea, .sc21-admin input:not([type]), .sc21-admin input[type="text"], .sc21-admin input[type="email"], .sc21-admin input[type="search"], .sc21-admin select { width: 100%; max-width: none; padding: .65rem; border: 1px solid #787c82; border-radius: 4px; font: inherit; }
+.sc21-form textarea { min-height: 7rem; resize: vertical; }
+.sc21-form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.sc21-form button { padding: .7rem 1.1rem; border: 0; border-radius: 4px; background: #135e96; color: #fff; cursor: pointer; font: inherit; font-weight: 600; }
+.sc21-form button:focus, .sc21-form input:focus, .sc21-form select:focus, .sc21-form textarea:focus { outline: 3px solid #72aee6; outline-offset: 2px; }
+.sc21-context { margin: -.35rem 0 1rem; color: #50575e; font-size: .86em; }
+.sc21-privacy { margin: -.35rem 0 1rem; color: #50575e; font-size: .86em; font-style: italic; line-height: 1.55; }
+.sc21-form .sc21-info { position: relative; display: inline-grid; width: 18px; min-width: 18px; height: 18px; min-height: 18px; place-items: center; margin: 0 .2rem; padding: 0 !important; border: 1px solid #6c7781 !important; border-radius: 50% !important; background: transparent !important; box-shadow: none; color: #50575e; cursor: help; font: 700 12px/1 Arial, sans-serif; vertical-align: text-bottom; }
+.sc21-form .sc21-info:hover, .sc21-form .sc21-info:focus { background: #f0f6fc !important; border-color: #135e96 !important; color: #135e96; outline: 2px solid #72aee6; outline-offset: 2px; }
+.sc21-form label[for="sc21-recipient"] { position: relative; }
+.sc21-tooltip { display: none; position: absolute; z-index: 2; top: 1.8rem; left: 0; width: min(280px, 70vw); padding: .6rem; border-radius: 4px; background: #1d2327; color: #fff; font: 400 .85rem/1.4 sans-serif; text-align: left; }
+.sc21-info:hover:not(.is-dismissed) + .sc21-tooltip, .sc21-info:focus:not(.is-dismissed) + .sc21-tooltip, .sc21-info.is-open:not(.is-dismissed) + .sc21-tooltip { display: block; }
+.sc21-message { padding: .9rem; border-radius: 4px; }
+.sc21-success { background: #edfaef; border: 1px solid #00a32a; }
+.sc21-error { background: #fcf0f1; border: 1px solid #d63638; }
+.sc21-hp { position: absolute !important; overflow: hidden !important; width: 1px !important; height: 1px !important; clip: rect(1px, 1px, 1px, 1px); }
+.sc21-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.sc21-form-footer p { margin-bottom: 0; }
+.sc21-admin { max-width: 1280px; }
+.sc21-card { max-width: 900px; margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #dcdcde; background: #fff; }
+.sc21-admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
+.sc21-staff-toolbar, .sc21-staff-filters, .sc21-counts { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.sc21-staff-toolbar { justify-content: space-between; margin: 1.25rem 0; }
+.sc21-counts span, .sc21-status { display: inline-block; padding: .25rem .55rem; border-radius: 999px; background: #f0f0f1; font-size: .9em; font-weight: 600; }
+.sc21-counts .sc21-available, .sc21-status.is-available { background: #edfaef; color: #005c1a; }
+.sc21-counts .sc21-unavailable, .sc21-status.is-unavailable { background: #fcf0f1; color: #8a2424; }
+.sc21-staff-filters { margin: 1rem 0; }
+.sc21-staff-filters input { width: 280px; }
+.sc21-staff-filters select { width: auto; }
+.sc21-staff-table td { vertical-align: middle; }
+.sc21-staff-table td:nth-child(5) { text-align: center; }
+.sc21-quick-action, .sc21-delete { display: inline; margin-left: .75rem; }
+.sc21-staff-editor { max-width: 900px; }
+.sc21-live-filters { display: flex; gap: .4rem; flex-wrap: wrap; }
+.sc21-live-filters button { border: 1px solid #8c8f94; border-radius: 999px; background: #fff; color: #1d2327; cursor: pointer; padding: .35rem .65rem; }
+.sc21-live-filters button.is-active, .sc21-live-filters button:hover, .sc21-live-filters button:focus { border-color: #135e96; background: #eaf5fb; color: #135e96; }
+.sc21-status { display: inline-block; width: 24px; min-width: 24px; height: 24px; min-height: 24px; padding: 0; overflow: hidden; color: transparent !important; font-size: 0 !important; line-height: 0 !important; vertical-align: middle; white-space: nowrap; }
+.sc21-status::before { display: grid; width: 100%; height: 100%; place-items: center; border-radius: 50%; color: #fff; font-size: .9rem; line-height: 1; }
+.sc21-status.is-available::before { background: #008a20; content: '✓'; }
+.sc21-status.is-unavailable::before { background: #d63638; content: '×'; }
+.sc21-staff-dialog { width: min(640px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; border: 0; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, .35); }
+.sc21-staff-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.sc21-staff-dialog .sc21-staff-editor, .sc21-staff-dialog .sc21-staff-editor * { box-sizing: border-box; }
+.sc21-staff-dialog .sc21-staff-editor { position: relative; max-width: none; margin: 0; padding: 1.5rem; overflow: auto; background: #fff; }
+.sc21-staff-dialog .sc21-admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sc21-staff-dialog .sc21-field-name, .sc21-staff-dialog .sc21-field-full { grid-column: 1 / -1; }
+.sc21-staff-dialog input:not([type]), .sc21-staff-dialog input[type="text"], .sc21-staff-dialog input[type="email"], .sc21-staff-dialog select { width: 100%; max-width: none; }
+.sc21-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid #dcdcde; }
+.sc21-modal-header h2, .sc21-modal-body h3 { margin: 0; }
+.sc21-modal-body { padding: 1.25rem 1.5rem; }
+.sc21-modal-body h3 { margin: 1.25rem 0 .75rem; font-size: 1rem; }
+.sc21-modal-body h3:first-child { margin-top: 0; }
+.sc21-modal-body .sc21-admin-grid p { margin: 0 0 1rem; }
+.sc21-availability-field > label { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; }
+.sc21-availability-field input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; accent-color: #2271b1; }
+.sc21-availability-field input[type="checkbox"]:focus { outline: 2px solid #72aee6; outline-offset: 2px; }
+.sc21-availability-field .description { display: block; margin-top: .35rem; }
+.sc21-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid #dcdcde; background: #f6f7f7; }
+.sc21-modal-footer-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
+.sc21-modal-footer .button, .sc21-modal-footer button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; margin: 0; }
+.sc21-dialog-close { width: 32px; height: 32px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; cursor: pointer; font-size: 1.5rem; line-height: 1; }
+.sc21-about { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1rem; }
+.sc21-about dt { font-weight: 700; }
+.sc21-help-intro { max-width: 900px; }
+.sc21-product-logo { display: block; width: min(360px, 100%); height: auto; margin-bottom: 1rem; }
+.sc21-product-tagline { color: #258B87; font-size: 1.1em; font-weight: 600; }
+.sc21-product-meta { display: flex; gap: .5rem 1rem; flex-wrap: wrap; color: #526777; }
+.sc21-contact-links { display: flex; gap: .5rem 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dcdcde; }
+.sc21-contact-links a { display: inline-flex; align-items: center; gap: .35rem; color: #173B56; text-decoration: none; }
+.sc21-contact-links a:hover, .sc21-contact-links a:focus { color: #258B87; text-decoration: underline; }
+.sc21-link-icon { display: inline-grid; width: 20px; height: 20px; place-items: center; border-radius: 3px; background: #173B56; color: #fff; font: 700 12px/1 Arial, sans-serif; }
+.sc21-help-guide { max-width: 900px; }
+.sc21-help-guide details { margin: 0; border-top: 1px solid #dcdcde; }
+.sc21-help-guide details:last-child { border-bottom: 1px solid #dcdcde; }
+.sc21-help-guide summary { padding: .85rem 0; color: #173B56; cursor: pointer; font-weight: 600; }
+.sc21-help-guide details > div { padding: 0 0 .75rem; }
+.sc21-help-guide details p { max-width: 78ch; }
+.sc21-help-guide details ol { max-width: 78ch; margin: .5rem 0 1rem 1.5rem; }
+.sc21-staff-table td:last-child { white-space: nowrap; }
+.sc21-staff-table td:last-child > a, .sc21-staff-table .sc21-quick-action > button, .sc21-icon-action { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; gap: .35rem; margin-right: .35rem; padding: 0 .55rem; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; color: #2c3338; cursor: pointer; font: inherit; line-height: normal; text-decoration: none; vertical-align: middle; }
+.sc21-icon-action .dashicons { width: 18px; height: 18px; font-size: 18px; line-height: 18px; }
+.sc21-staff-table td:last-child > a:hover, .sc21-staff-table td:last-child > a:focus, .sc21-staff-table .sc21-quick-action > button:hover, .sc21-staff-table .sc21-quick-action > button:focus, .sc21-icon-action:hover, .sc21-icon-action:focus { border-color: #135e96; background: #eaf5fb; box-shadow: 0 0 0 1px #135e96; }
+html.sc21-admin-enhanced .sc21-staff-filters select, html.sc21-admin-enhanced .sc21-staff-filters [type="submit"] { display: none; }
+html.sc21-admin-enhanced .sc21-counts { display: none; }
+html.sc21-admin-enhanced .sc21-staff-filters { display: flex; align-items: center; gap: .75rem; }
+@media (max-width: 600px) { .sc21-staff-dialog .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-staff-dialog .sc21-staff-editor { padding: 0; } .sc21-modal-header, .sc21-modal-body, .sc21-modal-footer { padding-left: 1rem; padding-right: 1rem; } .sc21-modal-footer { align-items: flex-start; flex-direction: column; } .sc21-modal-footer-actions { width: 100%; justify-content: flex-end; } }
+@media (max-width: 600px) { .sc21-form-wrap { margin: 1rem 0; padding: 1rem; } .sc21-form-row, .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-form-footer { align-items: flex-start; flex-direction: column; } .sc21-staff-filters input, .sc21-staff-filters select { width: 100%; } .sc21-quick-action, .sc21-delete { display: block; margin: .5rem 0 0; } }

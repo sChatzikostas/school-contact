@@ -63,7 +63,7 @@
 .sc21-quick-action, .sc21-delete { display: inline; margin-left: .75rem; }
 .sc21-staff-actions { display: flex; align-items: center; gap: .35rem; flex-wrap: nowrap; white-space: nowrap; }
 .sc21-staff-actions .sc21-quick-action { display: inline; margin: 0; }
-.sc21-staff-editor { max-width: 900px; }
+.sc21-staff-editor { max-width: 760px; }
 .sc21-live-filters { display: flex; gap: .4rem; flex-wrap: wrap; }
 .sc21-live-filters button { border: 1px solid #8c8f94; border-radius: 999px; background: #fff; color: #1d2327; cursor: pointer; padding: .35rem .65rem; }
 .sc21-live-filters button.is-active, .sc21-live-filters button:hover, .sc21-live-filters button:focus { border-color: #135e96; background: #eaf5fb; color: #135e96; }
@@ -71,26 +71,45 @@
 .sc21-status::before { display: grid; width: 16px; min-width: 16px; height: 16px; place-items: center; border-radius: 50%; color: #fff; font-size: .75rem; font-weight: 700; line-height: 1; }
 .sc21-status.is-available::before { background: #008a20; content: '✓'; }
 .sc21-status.is-unavailable::before { background: #d63638; content: '×'; }
-.sc21-staff-dialog { width: min(640px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; border: 0; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, .35); }
+.sc21-staff-dialog { width: min(760px, calc(100vw - 2rem)); max-height: calc(100vh - 1rem); padding: 0; overflow: hidden; border: 0; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, .35); }
+.sc21-staff-dialog[open] { inset: auto; top: 50vh; left: 50vw; margin: 0; transform: translate(-50%, -50%); }
 .sc21-staff-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.sc21-unsaved-dialog { width: min(460px, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); padding: 0; border: 1px solid #8c8f94; border-radius: 8px; box-shadow: 0 8px 32px rgba(0, 0, 0, .35); }
+.sc21-unsaved-dialog[open] { inset: auto; top: 50vh; left: 50vw; margin: 0; transform: translate(-50%, -50%); }
+.sc21-unsaved-dialog::backdrop { background: rgba(0, 0, 0, .45); }
+.sc21-unsaved-dialog-content { padding: 1.25rem 1.5rem; }
+.sc21-unsaved-dialog-content h2, .sc21-unsaved-dialog-content p { margin: 0; }
+.sc21-unsaved-dialog-content p { margin-top: .75rem; }
+.sc21-unsaved-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; padding: 1rem 1.5rem; border-top: 1px solid #dcdcde; background: #f6f7f7; }
 .sc21-staff-dialog .sc21-staff-editor, .sc21-staff-dialog .sc21-staff-editor * { box-sizing: border-box; }
-.sc21-staff-dialog .sc21-staff-editor { position: relative; max-width: none; margin: 0; padding: 1.5rem; overflow: auto; background: #fff; }
+.sc21-staff-dialog .sc21-staff-editor { display: flex; position: relative; max-width: none; max-height: calc(100vh - 1rem); min-height: 0; flex-direction: column; margin: 0; padding: 0; overflow: hidden; background: #fff; }
 .sc21-staff-dialog .sc21-admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sc21-staff-dialog .sc21-field-name, .sc21-staff-dialog .sc21-field-full { grid-column: 1 / -1; }
 .sc21-staff-dialog input:not([type]), .sc21-staff-dialog input[type="text"], .sc21-staff-dialog input[type="email"], .sc21-staff-dialog select { width: 100%; max-width: none; }
 .sc21-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid #dcdcde; }
 .sc21-modal-header h2, .sc21-modal-body h3 { margin: 0; }
-.sc21-modal-body { padding: 1.25rem 1.5rem; }
-.sc21-modal-body h3 { margin: 1.25rem 0 .75rem; font-size: 1rem; }
-.sc21-modal-body h3:first-child { margin-top: 0; }
-.sc21-modal-body .sc21-admin-grid p { margin: 0 0 1rem; }
-.sc21-availability-field > label { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; }
+.sc21-staff-dialog .sc21-staff-editor > form { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
+.sc21-modal-body { min-height: 0; flex: 1 1 auto; padding: 1.25rem 1.5rem; overflow-x: hidden; overflow-y: auto; }
+.sc21-editor-section + .sc21-editor-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #dcdcde; }
+.sc21-modal-body h3 { margin: 0 0 .75rem; font-size: 1rem; }
+.sc21-editor-section-description { margin: -.25rem 0 .9rem; }
+.sc21-modal-body .sc21-admin-grid p { margin: 0 0 .85rem; }
+.sc21-field-required, .sc21-field-optional { color: #50575e; font-weight: 400; }
+.sc21-editor-validation-summary { margin: 0 0 1rem; padding: .7rem .9rem; border-left: 4px solid #d63638; background: #fcf0f1; color: #8a2424; }
+.sc21-editor-validation-summary p { margin: 0; }
+.sc21-modal-body [aria-invalid="true"] { border-color: #d63638; box-shadow: 0 0 0 1px #d63638; }
+.sc21-modal-body [aria-invalid="true"]:focus { border-color: #b32d2e; box-shadow: 0 0 0 1px #b32d2e; }
+.sc21-field-error { display: block; margin-top: .35rem; color: #b32d2e; font-weight: 600; }
+.sc21-field-warning { display: block; margin-top: .35rem; color: #7a4f01; font-weight: 600; }
+.sc21-availability-field > label { display: inline-flex; min-height: 24px; align-items: center; gap: .5rem; cursor: pointer; }
 .sc21-availability-field input[type="checkbox"] { width: 16px; height: 16px; min-width: 16px; margin: 0; padding: 0; accent-color: #2271b1; }
-.sc21-availability-field input[type="checkbox"]:focus { outline: 2px solid #72aee6; outline-offset: 2px; }
+.sc21-availability-field input[type="checkbox"]:focus { outline: 2px solid #135e96; outline-offset: 2px; }
 .sc21-availability-field .description { display: block; margin-top: .35rem; }
 .sc21-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 1.5rem; border-top: 1px solid #dcdcde; background: #f6f7f7; }
 .sc21-modal-footer-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
 .sc21-modal-footer .button, .sc21-modal-footer button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; margin: 0; }
+.sc21-modal-footer .button-link-delete { border-color: #d63638; background: #fff; color: #b32d2e; }
+.sc21-modal-footer .button-link-delete:hover, .sc21-modal-footer .button-link-delete:focus { border-color: #b32d2e; background: #fcf0f1; color: #8a2424; box-shadow: 0 0 0 1px #d63638; }
 .sc21-dialog-close { width: 32px; height: 32px; border: 1px solid #8c8f94; border-radius: 4px; background: #fff; cursor: pointer; font-size: 1.5rem; line-height: 1; }
 .sc21-about { display: grid; grid-template-columns: max-content 1fr; gap: .6rem 1rem; }
 .sc21-about dt { font-weight: 700; }
@@ -131,6 +150,6 @@ html.sc21-admin-enhanced .sc21-staff-filters { display: flex; align-items: cente
 .sc21-sort-indicator { color: #50575e; }
 .sc21-empty-state p { margin: .35rem 0 0; }
 .sc21-admin .sc21-staff-table tbody tr[hidden] { display: none !important; }
-@media (max-width: 600px) { .sc21-staff-dialog .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-staff-dialog .sc21-staff-editor { padding: 0; } .sc21-modal-header, .sc21-modal-body, .sc21-modal-footer { padding-left: 1rem; padding-right: 1rem; } .sc21-modal-footer { align-items: flex-start; flex-direction: column; } .sc21-modal-footer-actions { width: 100%; justify-content: flex-end; } }
+@media (max-width: 600px) { .sc21-staff-dialog .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-staff-dialog .sc21-staff-editor { padding: 0; } .sc21-modal-header, .sc21-modal-body, .sc21-modal-footer, .sc21-unsaved-dialog-content, .sc21-unsaved-dialog-actions { padding-left: 1rem; padding-right: 1rem; } .sc21-modal-footer { align-items: flex-start; flex-direction: column; } .sc21-modal-footer-actions { width: 100%; justify-content: flex-end; } .sc21-unsaved-dialog-actions { align-items: stretch; } .sc21-unsaved-dialog-actions .button { width: 100%; } }
 @media (max-width: 782px) { .sc21-section-heading { flex-wrap: wrap; } .sc21-staff-toolbar { align-items: flex-start; flex-direction: column; } .sc21-staff-filters { width: 100%; } }
 @media (max-width: 600px) { .sc21-admin-brand { align-items: flex-start; flex-direction: column; gap: .35rem; } .sc21-form-wrap { margin: 1rem 0; padding: 1rem; } .sc21-form-row, .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-form-footer { align-items: flex-start; flex-direction: column; } .sc21-staff-filters input, .sc21-staff-filters select { width: 100%; } .sc21-section-heading .button { width: 100%; justify-content: center; } .sc21-quick-action, .sc21-delete { display: block; margin: .5rem 0 0; } .sc21-staff-actions .sc21-quick-action { display: inline; margin: 0; } }

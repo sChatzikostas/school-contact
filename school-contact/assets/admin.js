@@ -14,6 +14,7 @@
   const sortKeys = ['name', 'category', 'details', 'email', 'availability'];
   const uuidPattern = /^[a-f0-9-]{36}$/i;
   let workflow = null;
+  let editorProtection = null;
 
   const removeTransfer = () => { if (!stateKey) return; try { sessionStorage.removeItem(stateKey); } catch (_) {} };
   const isStaffUrl = (url) => url.origin === window.location.origin && url.pathname === window.location.pathname && url.searchParams.get('page') === 'sc21-school-communication' && (url.searchParams.get('tab') || 'staff') === 'staff';
@@ -143,6 +144,138 @@
     filters.addEventListener('click', (event) => { const button = event.target.closest('button[data-filter]'); if (!button) return; availability = button.dataset.filter; availabilitySelect.value = availability; apply(); });
     clear?.addEventListener('click', (event) => { event.preventDefault(); search.value = ''; category.value = 'all'; availability = 'all'; availabilitySelect.value = 'all'; removeTransfer(); apply(); });
     form.addEventListener('submit', (event) => { event.preventDefault(); apply(); });
+    const editorForm = editor?.querySelector('form');
+    if (editorForm) {
+      const summary = editorForm.querySelector('#sc21-editor-validation-summary');
+      const fields = {
+        full_name: { control: editorForm.querySelector('#sc21-full-name'), message: 'Συμπληρώστε το ονοματεπώνυμο.' },
+        category: { control: editorForm.querySelector('#sc21-category'), message: 'Επιλέξτε έγκυρη κατηγορία.' },
+        specialty: { control: editorForm.querySelector('#sc21-specialty'), message: 'Συμπληρώστε την ειδικότητα.' },
+        official_email: { control: editorForm.querySelector('#sc21-official-email'), message: 'Εισαγάγετε μια έγκυρη διεύθυνση email.' },
+        alternative_email: { control: editorForm.querySelector('#sc21-alternative-email'), message: 'Εισαγάγετε μια έγκυρη διεύθυνση email.' },
+      };
+      let records = []; let warningsActive = false;
+      try { const parsed = JSON.parse(editorForm.dataset.sc21StaffRecords || '[]'); records = Array.isArray(parsed) ? parsed.filter((record) => record && typeof record === 'object') : []; } catch (_) {}
+      const collapse = (value) => String(value || '').trim().replace(/\s+/g, ' ');
+      const normalizeName = (value) => normalize(collapse(value));
+      const normalizeEmail = (value) => String(value || '').trim().toLocaleLowerCase('en-US');
+      const isWordPressEmail = (value) => {
+        const email = String(value || '').trim();
+        const at = email.indexOf('@');
+        if (email.length < 6 || at < 1 || email.indexOf('@', at + 1) !== -1) return false;
+        const local = email.slice(0, at); const domain = email.slice(at + 1);
+        if (!/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i.test(local)) return false;
+        if (domain.length < 4 || !domain.includes('.') || domain.trim() !== domain || domain.startsWith('.') || domain.endsWith('.')) return false;
+        return domain.split('.').every((subdomain) => /^[a-z0-9-]+$/i.test(subdomain) && !subdomain.startsWith('-') && !subdomain.endsWith('-'));
+      };
+      const currentId = editorForm.querySelector('[name="staff_id"]')?.value || '';
+      const syncDescriptions = (field) => {
+        const ids = [field.matches('#sc21-official-email, #sc21-alternative-email') ? 'sc21-contact-email-help' : '', `${field.id}-error`, `${field.id}-warning`].filter((id) => id && editorForm.querySelector(`#${id}`));
+        if (ids.length) field.setAttribute('aria-describedby', ids.join(' ')); else field.removeAttribute('aria-describedby');
+      };
+      const clearField = (key) => {
+        const field = fields[key]?.control; if (!field) return;
+        field.removeAttribute('aria-invalid');
+        editorForm.querySelector(`#${field.id}-error`)?.remove();
+        syncDescriptions(field);
+      };
+      const showField = (key, message) => {
+        const field = fields[key]?.control; if (!field) return;
+        const id = `${field.id}-error`; let error = editorForm.querySelector(`#${id}`);
+        if (!error) { error = document.createElement('span'); error.id = id; error.className = 'sc21-field-error'; field.insertAdjacentElement('afterend', error); }
+        error.textContent = message; field.setAttribute('aria-invalid', 'true'); syncDescriptions(field);
+      };
+      const clearWarnings = () => Object.keys(fields).forEach((key) => {
+        const field = fields[key].control; editorForm.querySelector(`#${field.id}-warning`)?.remove(); syncDescriptions(field);
+      });
+      const showWarning = (key, message) => {
+        const field = fields[key]?.control; if (!field) return;
+        const id = `${field.id}-warning`; let warning = editorForm.querySelector(`#${id}`);
+        if (!warning) { warning = document.createElement('span'); warning.id = id; warning.className = 'sc21-field-warning'; field.insertAdjacentElement('afterend', warning); }
+        warning.textContent = message; syncDescriptions(field);
+      };
+      const recordValue = (record, key) => String(record[key] || '');
+      const currentRecord = () => ({
+        full_name: fields.full_name.control.value,
+        category: fields.category.control.value,
+        specialty: fields.specialty.control.value,
+        classroom: editorForm.querySelector('#sc21-classroom')?.value || '',
+        official_email: fields.official_email.control.value,
+        alternative_email: fields.alternative_email.control.value,
+        active: Boolean(editorForm.querySelector('[name="active"]')?.checked),
+      });
+      const sameRecord = (current, record) => normalizeName(current.full_name) === normalizeName(recordValue(record, 'full_name'))
+        && current.category === recordValue(record, 'category')
+        && collapse(current.specialty) === collapse(recordValue(record, 'specialty'))
+        && collapse(current.classroom) === collapse(recordValue(record, 'classroom'))
+        && normalizeEmail(current.official_email) === normalizeEmail(recordValue(record, 'official_email'))
+        && normalizeEmail(current.alternative_email) === normalizeEmail(recordValue(record, 'alternative_email'))
+        && current.active === Boolean(record.active);
+      const updateWarnings = () => {
+        clearWarnings();
+        const current = currentRecord(); const otherRecords = records.filter((record) => recordValue(record, 'id') !== currentId);
+        const official = normalizeEmail(current.official_email); const alternative = normalizeEmail(current.alternative_email);
+        const identical = otherRecords.some((record) => sameRecord(current, record));
+        if (normalizeName(current.full_name) && identical) {
+          showWarning('full_name', 'Υπάρχει ήδη καταχώριση με τα ίδια στοιχεία. Ελέγξτε μήπως πρόκειται για διπλή καταχώριση.');
+        } else if (normalizeName(current.full_name) && otherRecords.some((record) => normalizeName(recordValue(record, 'full_name')) === normalizeName(current.full_name))) {
+          showWarning('full_name', 'Υπάρχει ήδη μέλος προσωπικού με το ίδιο ονοματεπώνυμο.');
+        }
+        if (official && alternative && official === alternative) {
+          showWarning('official_email', 'Έχετε δηλώσει την ίδια διεύθυνση και στα δύο πεδία. Το μήνυμα θα αποσταλεί μία φορά.');
+        } else {
+          if (official && otherRecords.some((record) => [normalizeEmail(recordValue(record, 'official_email')), normalizeEmail(recordValue(record, 'alternative_email'))].includes(official))) showWarning('official_email', 'Η διεύθυνση χρησιμοποιείται ήδη από άλλο μέλος προσωπικού.');
+          if (alternative && otherRecords.some((record) => [normalizeEmail(recordValue(record, 'official_email')), normalizeEmail(recordValue(record, 'alternative_email'))].includes(alternative))) showWarning('alternative_email', 'Η διεύθυνση χρησιμοποιείται ήδη από άλλο μέλος προσωπικού.');
+        }
+      };
+      const validateEditor = (moveFocus) => {
+        const errors = new Map();
+        const name = fields.full_name.control; const specialty = fields.specialty.control; const categoryControl = fields.category.control;
+        const official = fields.official_email.control; const alternative = fields.alternative_email.control;
+        if (!name.value.trim()) errors.set('full_name', fields.full_name.message);
+        if (!specialty.value.trim()) errors.set('specialty', fields.specialty.message);
+        if (![...categoryControl.options].some((option) => option.value === categoryControl.value)) errors.set('category', fields.category.message);
+        if (official.value.trim() && !isWordPressEmail(official.value)) errors.set('official_email', fields.official_email.message);
+        if (alternative.value.trim() && !isWordPressEmail(alternative.value)) errors.set('alternative_email', fields.alternative_email.message);
+        if (editorForm.querySelector('[name="active"]')?.checked && !official.value.trim() && !alternative.value.trim()) errors.set('official_email', 'Ένα διαθέσιμο μέλος προσωπικού χρειάζεται τουλάχιστον μία έγκυρη διεύθυνση email.');
+        Object.keys(fields).forEach(clearField); errors.forEach((message, key) => showField(key, message));
+        if (summary) summary.hidden = errors.size === 0;
+        editorForm.dataset.sc21Validated = errors.size ? 'true' : '';
+        if (warningsActive || moveFocus) updateWarnings();
+        if (errors.size && moveFocus) {
+          const first = fields[errors.keys().next().value]?.control;
+          if (first) { first.scrollIntoView({ block: 'nearest' }); first.focus({ preventScroll: true }); }
+        }
+        return errors.size === 0;
+      };
+      editorForm.addEventListener('submit', (event) => { warningsActive = true; if (!validateEditor(true)) event.preventDefault(); });
+      editorForm.addEventListener('input', () => { if (editorForm.dataset.sc21Validated === 'true' || (summary && !summary.hidden)) validateEditor(false); else if (warningsActive) updateWarnings(); });
+      editorForm.addEventListener('change', () => { if (editorForm.dataset.sc21Validated === 'true' || (summary && !summary.hidden)) validateEditor(false); else if (warningsActive) updateWarnings(); });
+      editorForm.addEventListener('focusout', (event) => { if (Object.values(fields).some(({ control }) => control === event.target)) { warningsActive = true; updateWarnings(); } });
+      const editable = [fields.full_name.control, fields.category.control, fields.specialty.control, editorForm.querySelector('#sc21-classroom'), fields.official_email.control, fields.alternative_email.control, editorForm.querySelector('[name="active"]')].filter(Boolean);
+      const snapshot = () => editable.map((control) => control.type === 'checkbox' ? control.checked : control.value);
+      const initialSnapshot = snapshot();
+      let submissionAccepted = false;
+      let beforeUnloadAttached = false;
+      const dirty = () => snapshot().some((value, index) => value !== initialSnapshot[index]);
+      const beforeUnload = (event) => { event.preventDefault(); event.returnValue = ''; };
+      const syncProtection = () => {
+        const shouldProtect = !submissionAccepted && dirty();
+        if (shouldProtect && !beforeUnloadAttached) { window.addEventListener('beforeunload', beforeUnload); beforeUnloadAttached = true; }
+        if (!shouldProtect && beforeUnloadAttached) { window.removeEventListener('beforeunload', beforeUnload); beforeUnloadAttached = false; }
+        return shouldProtect;
+      };
+      editable.forEach((control) => { control.addEventListener('input', syncProtection); control.addEventListener('change', syncProtection); });
+      editorForm.addEventListener('submit', (event) => {
+        if (event.defaultPrevented) { syncProtection(); return; }
+        submissionAccepted = true;
+        syncProtection();
+      });
+      editorProtection = {
+        isDirty: () => syncProtection(),
+        allowNavigation: () => { submissionAccepted = true; syncProtection(); },
+      };
+    }
     document.querySelectorAll('.sc21-quick-action, .sc21-delete, .sc21-staff-editor form').forEach((mutation) => mutation.addEventListener('submit', (event) => { if (event.defaultPrevented) return; returnFocus = validFocus(focusFromMutation(mutation)); writeTransfer(returnFocus); mutation.querySelectorAll('input[name="sc21_enhanced"]').forEach((input) => { input.value = '1'; }); mutation.querySelectorAll('input[name="sc21_search"]').forEach((input) => { input.remove(); }); ['sc21_category', 'sc21_availability'].forEach((name) => { const input = mutation.querySelector(`[name="${name}"]`) || document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = name === 'sc21_category' ? category.value : availability; if (!input.parentNode) mutation.append(input); }); }));
     navigationLinks.forEach((link) => link.addEventListener('click', (event) => { const url = canonicalUrl(link.href); returnFocus = validFocus(focusFromLink(link)); writeTransfer(returnFocus, { orderby: sortKeys.includes(url.searchParams.get('sc21_orderby')) ? url.searchParams.get('sc21_orderby') : serverOrderby, order: url.searchParams.get('sc21_order')?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC' }, destinationFromUrl(url)); event.preventDefault(); window.location.href = url.toString(); }));
     apply();
@@ -158,5 +291,58 @@
   document.querySelectorAll('.sc21-copy-shortcode').forEach((button) => { const feedback = document.querySelector('#sc21-copy-feedback'); button.addEventListener('click', async () => { try { await navigator.clipboard.writeText(button.dataset.sc21Copy || ''); button.textContent = 'Αντιγράφηκε'; if (feedback) feedback.textContent = 'Το shortcode αντιγράφηκε.'; } catch (_) { if (feedback) feedback.textContent = 'Δεν ήταν δυνατή η αντιγραφή. Επιλέξτε και αντιγράψτε το shortcode χειροκίνητα.'; } }); });
   document.querySelectorAll('.sc21-status').forEach((status) => { status.title = status.textContent.trim(); });
   document.querySelectorAll('.sc21-staff-table td:last-child').forEach((cell) => cell.querySelectorAll('a, button').forEach((control) => { const label = control.textContent.trim(); control.title = label; control.classList.remove('button-link', 'button-link-delete'); control.classList.add('sc21-icon-action'); const icon = label.includes('Επεξεργασία') ? 'dashicons-edit' : label.includes('Απενεργοποίηση') ? 'dashicons-remove' : 'dashicons-yes'; control.innerHTML = '<span class="dashicons ' + icon + '" aria-hidden="true"></span><span>' + label + '</span>'; }));
-  if (editor && window.HTMLDialogElement) { const dialog = document.createElement('dialog'); dialog.className = 'sc21-staff-dialog'; dialog.setAttribute('aria-labelledby', 'sc21-staff-editor-title'); const close = editor.querySelector('.sc21-dialog-close'); dialog.append(editor); document.body.append(dialog); dialog.showModal(); const first = dialog.querySelector('input:not([type="hidden"]), select'); if (first) first.focus(); if (close) close.addEventListener('click', () => dialog.close()); dialog.addEventListener('close', () => { if (!workflow) return; workflow.writeTransfer(workflow.returnFocus()); window.location.href = workflow.returnToStaff().toString(); }); }
+  if (editor && window.HTMLDialogElement) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'sc21-staff-dialog';
+    dialog.setAttribute('aria-labelledby', 'sc21-staff-editor-title');
+    const close = editor.querySelector('.sc21-dialog-close');
+    const cancel = editor.querySelector('.sc21-modal-footer-actions a');
+    const deleteForm = editor.querySelector('.sc21-delete');
+    const confirmation = document.createElement('dialog');
+    confirmation.className = 'sc21-unsaved-dialog';
+    confirmation.setAttribute('aria-labelledby', 'sc21-unsaved-title');
+    confirmation.setAttribute('aria-describedby', 'sc21-unsaved-message');
+    confirmation.innerHTML = '<div class="sc21-unsaved-dialog-content"><h2 id="sc21-unsaved-title">Μη αποθηκευμένες αλλαγές</h2><p id="sc21-unsaved-message">Έχετε πραγματοποιήσει αλλαγές που δεν έχουν αποθηκευτεί. Αν κλείσετε τη φόρμα, οι αλλαγές αυτές θα χαθούν.</p></div><div class="sc21-unsaved-dialog-actions"><button type="button" class="button button-primary sc21-unsaved-continue">Συνέχεια επεξεργασίας</button><button type="button" class="button sc21-unsaved-discard">Απόρριψη αλλαγών</button></div>';
+    const continueEditing = confirmation.querySelector('.sc21-unsaved-continue');
+    const discardChanges = confirmation.querySelector('.sc21-unsaved-discard');
+    let confirmationOpen = false;
+    let dismissalFocus = null;
+    const isVisible = (element) => Boolean(element && !element.hidden && !element.closest('[hidden]') && element.getClientRects().length);
+    const trapFocus = (container) => container.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const controls = [...container.querySelectorAll('a[href], button:not([disabled]), input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])')].filter(isVisible);
+      const index = controls.indexOf(document.activeElement);
+      if (event.shiftKey && index === 0) { event.preventDefault(); controls[controls.length - 1]?.focus(); }
+      if (!event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[0]?.focus(); }
+    });
+    const closeEditor = () => { editorProtection?.allowNavigation(); dialog.close(); };
+    const requestDismissal = () => {
+      if (!editorProtection?.isDirty()) { closeEditor(); return; }
+      if (confirmationOpen) return;
+      confirmationOpen = true;
+      dismissalFocus = document.activeElement;
+      confirmation.showModal();
+      continueEditing?.focus();
+    };
+    dialog.append(editor);
+    document.body.append(dialog, confirmation);
+    trapFocus(dialog);
+    trapFocus(confirmation);
+    dialog.showModal();
+    const first = dialog.querySelector('input:not([type="hidden"]), select'); if (first) first.focus();
+    if (close) close.addEventListener('click', requestDismissal);
+    if (cancel) cancel.addEventListener('click', (event) => { event.preventDefault(); event.stopImmediatePropagation(); requestDismissal(); }, true);
+    dialog.addEventListener('cancel', (event) => { if (editorProtection?.isDirty()) { event.preventDefault(); requestDismissal(); } });
+    confirmation.addEventListener('cancel', (event) => { event.preventDefault(); window.requestAnimationFrame(() => confirmation.close('continue')); });
+    continueEditing?.addEventListener('click', () => confirmation.close('continue'));
+    discardChanges?.addEventListener('click', () => confirmation.close('discard'));
+    confirmation.addEventListener('close', () => {
+      confirmationOpen = false;
+      editorProtection?.isDirty();
+      if (confirmation.returnValue === 'discard') { closeEditor(); return; }
+      if (isVisible(dismissalFocus)) { try { dismissalFocus.focus({ preventScroll: true }); } catch (_) { dismissalFocus.focus(); } }
+    });
+    deleteForm?.addEventListener('submit', (event) => { if (!event.defaultPrevented) editorProtection?.allowNavigation(); });
+    dialog.addEventListener('close', () => { if (!workflow) return; editorProtection?.allowNavigation(); workflow.writeTransfer(workflow.returnFocus()); window.location.href = workflow.returnToStaff().toString(); });
+  }
 })();

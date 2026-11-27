@@ -84,6 +84,70 @@ function sc21_staff_redirect( string $notice ): void {
 	sc21_admin_redirect( $notice, 'staff', sc21_staff_state_args( $state, ! $enhanced ) );
 }
 
+function sc21_staff_validation_messages(): array {
+	return array(
+		'full_name'         => __( 'Συμπληρώστε το ονοματεπώνυμο.', 'school-contact' ),
+		'category'          => __( 'Επιλέξτε έγκυρη κατηγορία.', 'school-contact' ),
+		'specialty'         => __( 'Συμπληρώστε την ειδικότητα.', 'school-contact' ),
+		'official_email'    => __( 'Εισαγάγετε μια έγκυρη διεύθυνση email.', 'school-contact' ),
+		'alternative_email' => __( 'Εισαγάγετε μια έγκυρη διεύθυνση email.', 'school-contact' ),
+		'contact_email'     => __( 'Ένα διαθέσιμο μέλος προσωπικού χρειάζεται τουλάχιστον μία έγκυρη διεύθυνση email.', 'school-contact' ),
+	);
+}
+
+function sc21_staff_validation_codes( WP_Error $errors ): array {
+	$allowed = array_keys( sc21_staff_validation_messages() );
+	return array_values( array_intersect( $allowed, $errors->get_error_codes() ) );
+}
+
+function sc21_staff_validation_redirect( WP_Error $errors, string $id ): void {
+	$state = sc21_staff_state( $_POST );
+	$enhanced = '1' === sc21_admin_post_string( 'sc21_enhanced' );
+	$args = sc21_staff_state_args( $state, ! $enhanced );
+	$args['sc21_action'] = '' === $id ? 'add' : 'edit';
+	if ( '' !== $id ) {
+		$args['staff_id'] = $id;
+	}
+	$codes = sc21_staff_validation_codes( $errors );
+	if ( $codes ) {
+		$args['sc21_errors'] = implode( ',', $codes );
+	}
+	sc21_admin_redirect( 'staff_validation', 'staff', $args );
+}
+
+function sc21_staff_form_errors(): array {
+	$raw = isset( $_GET['sc21_errors'] ) && is_string( $_GET['sc21_errors'] ) ? wp_unslash( $_GET['sc21_errors'] ) : '';
+	$messages = sc21_staff_validation_messages();
+	$errors = array();
+	foreach ( explode( ',', $raw ) as $code ) {
+		$code = sanitize_key( $code );
+		if ( isset( $messages[ $code ] ) ) {
+			$errors[ $code ] = $messages[ $code ];
+		}
+	}
+	return $errors;
+}
+
+function sc21_staff_field_attributes( array $errors, string $field, string $id ): void {
+	$describedby = array();
+	if ( in_array( $field, array( 'official_email', 'alternative_email' ), true ) ) {
+		$describedby[] = 'sc21-contact-email-help';
+	}
+	if ( isset( $errors[ $field ] ) ) {
+		$describedby[] = $id . '-error';
+		printf( ' aria-invalid="true"' );
+	}
+	if ( $describedby ) {
+		printf( ' aria-describedby="%s"', esc_attr( implode( ' ', $describedby ) ) );
+	}
+}
+
+function sc21_staff_field_error( array $errors, string $field, string $id ): void {
+	if ( isset( $errors[ $field ] ) ) {
+		printf( '<span id="%1$s-error" class="sc21-field-error">%2$s</span>', esc_attr( $id ), esc_html( $errors[ $field ] ) );
+	}
+}
+
 function sc21_save_general(): void {
 	sc21_require_admin();
 	check_admin_referer( 'sc21_save_general' );
@@ -109,6 +173,7 @@ function sc21_clean_staff( string $id = '' ) {
 	$official    = sc21_admin_post_string( 'official_email' );
 	$alternative = sc21_admin_post_string( 'alternative_email' );
 	$active_raw  = isset( $_POST['active'] ) ? $_POST['active'] : '';
+	$errors = new WP_Error();
 	if ( null === $name || null === $specialty || null === $category || null === $classroom || null === $official || null === $alternative || ! is_string( $active_raw ) ) {
 		return new WP_Error( 'invalid_staff' );
 	}
@@ -118,11 +183,26 @@ function sc21_clean_staff( string $id = '' ) {
 	$official    = trim( $official );
 	$alternative = trim( $alternative );
 	$active      = '1' === $active_raw;
-	if ( '' === $name || '' === $specialty || sc21_text_length( $name ) > 120 || sc21_text_length( $specialty ) > 120 || sc21_text_length( $classroom ) > 80 || ! array_key_exists( $category, sc21_categories() ) ) {
-		return new WP_Error( 'invalid_staff' );
+	if ( '' === $name || sc21_text_length( $name ) > 120 ) {
+		$errors->add( 'full_name', '' );
 	}
-	if ( ( '' !== $official && ! is_email( $official ) ) || ( '' !== $alternative && ! is_email( $alternative ) ) ) {
-		return new WP_Error( 'invalid_email' );
+	if ( '' === $specialty || sc21_text_length( $specialty ) > 120 ) {
+		$errors->add( 'specialty', '' );
+	}
+	if ( sc21_text_length( $classroom ) > 80 ) {
+		$errors->add( 'invalid_staff', '' );
+	}
+	if ( ! array_key_exists( $category, sc21_categories() ) ) {
+		$errors->add( 'category', '' );
+	}
+	if ( '' !== $official && ! is_email( $official ) ) {
+		$errors->add( 'official_email', '' );
+	}
+	if ( '' !== $alternative && ! is_email( $alternative ) ) {
+		$errors->add( 'alternative_email', '' );
+	}
+	if ( $errors->has_errors() ) {
+		return $errors;
 	}
 	$staff = array(
 		'id'                => '' !== $id ? $id : wp_generate_uuid4(),
@@ -135,7 +215,7 @@ function sc21_clean_staff( string $id = '' ) {
 		'active'            => $active,
 	);
 	if ( $active && empty( sc21_staff_addresses( $staff ) ) ) {
-		return new WP_Error( 'missing_email' );
+		return new WP_Error( 'contact_email' );
 	}
 	return $staff;
 }
@@ -160,6 +240,9 @@ function sc21_save_staff(): void {
 	}
 	$staff = sc21_clean_staff( $id );
 	if ( is_wp_error( $staff ) ) {
+		if ( sc21_staff_validation_codes( $staff ) ) {
+			sc21_staff_validation_redirect( $staff, $id );
+		}
 		sc21_staff_redirect( $staff->get_error_code() );
 	}
 	$updated = false;
@@ -236,11 +319,12 @@ function sc21_admin_notice(): void {
 		'invalid_staff'     => __( 'Ελέγξτε τα υποχρεωτικά στοιχεία του μέλους προσωπικού.', 'school-contact' ),
 		'invalid_email'     => __( 'Ελέγξτε τις διευθύνσεις email του προσωπικού.', 'school-contact' ),
 		'missing_email'     => __( 'Ένα διαθέσιμο μέλος προσωπικού χρειάζεται τουλάχιστον μία έγκυρη διεύθυνση email.', 'school-contact' ),
+		'staff_validation'  => __( 'Ελέγξτε τα επισημασμένα πεδία πριν αποθηκεύσετε την καταχώριση.', 'school-contact' ),
 		'staff_error'       => __( 'Η ενέργεια δεν ήταν έγκυρη.', 'school-contact' ),
 		'persistence_error' => __( 'Η αποθήκευση δεν ολοκληρώθηκε. Παρακαλούμε δοκιμάστε ξανά.', 'school-contact' ),
 	);
 	if ( isset( $messages[ $notice ] ) ) {
-		$error = str_ends_with( $notice, 'error' ) || in_array( $notice, array( 'invalid_staff', 'invalid_email', 'missing_email', 'persistence_error' ), true );
+		$error = str_ends_with( $notice, 'error' ) || in_array( $notice, array( 'invalid_staff', 'invalid_email', 'missing_email', 'staff_validation', 'persistence_error' ), true );
 		printf( '<div class="notice %1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $error ? 'notice-error' : 'notice-success' ), esc_html( $messages[ $notice ] ) );
 	}
 }
@@ -290,14 +374,53 @@ function sc21_filtered_staff( array $staff, array $state ): array {
 	return array_values( $items );
 }
 
-function sc21_admin_staff_form( array $staff, array $state ): void {
+function sc21_admin_staff_form( array $staff, array $state, array $staff_records ): void {
 	$is_edit = '' !== $staff['id'];
 	$form_id = 'sc21-staff-save-' . ( $is_edit ? $staff['id'] : 'new' );
+	$errors = sc21_staff_form_errors();
+	$duplicate_records = array_map( static function ( array $record ): array {
+		return array(
+			'id'                => (string) ( $record['id'] ?? '' ),
+			'full_name'         => (string) ( $record['full_name'] ?? '' ),
+			'category'          => (string) ( $record['category'] ?? '' ),
+			'specialty'         => (string) ( $record['specialty'] ?? '' ),
+			'classroom'         => (string) ( $record['classroom'] ?? '' ),
+			'official_email'    => (string) ( $record['official_email'] ?? '' ),
+			'alternative_email' => (string) ( $record['alternative_email'] ?? '' ),
+			'active'            => ! empty( $record['active'] ),
+		);
+	}, $staff_records );
+	if ( isset( $errors['contact_email'] ) && ! isset( $errors['official_email'] ) ) {
+		$errors['official_email'] = $errors['contact_email'];
+	}
 	?>
 	<section class="sc21-card sc21-staff-editor" aria-labelledby="sc21-staff-editor-title">
 		<header class="sc21-modal-header"><h2 id="sc21-staff-editor-title"><?php echo esc_html( $is_edit ? __( 'Επεξεργασία προσωπικού σχολείου', 'school-contact' ) : __( 'Προσθήκη προσωπικού σχολείου', 'school-contact' ) ); ?></h2><button type="button" class="sc21-dialog-close" aria-label="<?php esc_attr_e( 'Κλείσιμο', 'school-contact' ); ?>">×</button></header>
-		<form id="<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="sc21_save_staff"><input type="hidden" name="staff_id" value="<?php echo esc_attr( $staff['id'] ); ?>"><?php sc21_staff_context_fields( $state ); wp_nonce_field( 'sc21_save_staff' ); ?>
-			<div class="sc21-modal-body"><h3><?php esc_html_e( 'Στοιχεία προσωπικού', 'school-contact' ); ?></h3><div class="sc21-admin-grid"><p class="sc21-field-name"><label for="sc21-full-name"><?php esc_html_e( 'Ονοματεπώνυμο', 'school-contact' ); ?></label><input id="sc21-full-name" name="full_name" type="text" maxlength="120" required value="<?php echo esc_attr( $staff['full_name'] ); ?>"></p><p><label for="sc21-specialty"><?php esc_html_e( 'Ειδικότητα', 'school-contact' ); ?></label><input id="sc21-specialty" name="specialty" type="text" maxlength="120" required value="<?php echo esc_attr( $staff['specialty'] ); ?>"></p><p><label for="sc21-category"><?php esc_html_e( 'Κατηγορία', 'school-contact' ); ?></label><select id="sc21-category" name="category"><?php foreach ( sc21_categories() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $staff['category'], $key ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></p><p><label for="sc21-classroom"><?php esc_html_e( 'Τμήμα', 'school-contact' ); ?></label><input id="sc21-classroom" name="classroom" type="text" maxlength="80" value="<?php echo esc_attr( $staff['classroom'] ); ?>"></p></div><h3><?php esc_html_e( 'Στοιχεία επικοινωνίας', 'school-contact' ); ?></h3><div class="sc21-admin-grid"><p class="sc21-field-full"><label for="sc21-official-email"><?php esc_html_e( 'Υπηρεσιακό email (προαιρετικό)', 'school-contact' ); ?></label><input id="sc21-official-email" name="official_email" type="email" maxlength="254" value="<?php echo esc_attr( $staff['official_email'] ); ?>"></p><p class="sc21-field-full"><label for="sc21-alternative-email"><?php esc_html_e( 'Εναλλακτικό email (προαιρετικό)', 'school-contact' ); ?></label><input id="sc21-alternative-email" name="alternative_email" type="email" maxlength="254" value="<?php echo esc_attr( $staff['alternative_email'] ); ?>"><span class="description"><?php esc_html_e( 'Όταν έχουν καταχωριστεί και οι δύο διευθύνσεις, τα μηνύματα αποστέλλονται και στις δύο.', 'school-contact' ); ?></span></p></div><p class="sc21-availability-field"><label><input name="active" type="checkbox" value="1" <?php checked( ! empty( $staff['active'] ) ); ?>> <span><?php esc_html_e( 'Διαθέσιμος ως παραλήπτης', 'school-contact' ); ?></span></label><span class="description"><?php esc_html_e( 'Οι διαθέσιμοι παραλήπτες εμφανίζονται στη δημόσια φόρμα επικοινωνίας.', 'school-contact' ); ?></span></p></div>
+		<form id="<?php echo esc_attr( $form_id ); ?>" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" novalidate data-sc21-staff-records="<?php echo esc_attr( wp_json_encode( $duplicate_records ) ); ?>"><input type="hidden" name="action" value="sc21_save_staff"><input type="hidden" name="staff_id" value="<?php echo esc_attr( $staff['id'] ); ?>"><?php sc21_staff_context_fields( $state ); wp_nonce_field( 'sc21_save_staff' ); ?>
+			<div class="sc21-modal-body">
+				<div id="sc21-editor-validation-summary" class="sc21-editor-validation-summary" role="alert" tabindex="-1"<?php echo $errors ? '' : ' hidden'; ?>><p><?php esc_html_e( 'Ελέγξτε τα επισημασμένα πεδία πριν αποθηκεύσετε την καταχώριση.', 'school-contact' ); ?></p></div>
+				<section class="sc21-editor-section" aria-labelledby="sc21-staff-details-heading">
+					<h3 id="sc21-staff-details-heading"><?php esc_html_e( 'Στοιχεία προσωπικού', 'school-contact' ); ?></h3>
+					<div class="sc21-admin-grid">
+						<p class="sc21-field-name"><label for="sc21-full-name"><?php esc_html_e( 'Ονοματεπώνυμο', 'school-contact' ); ?> <span class="sc21-field-required"><?php esc_html_e( '(υποχρεωτικό)', 'school-contact' ); ?></span></label><input id="sc21-full-name" name="full_name" type="text" maxlength="120" required value="<?php echo esc_attr( $staff['full_name'] ); ?>"<?php sc21_staff_field_attributes( $errors, 'full_name', 'sc21-full-name' ); ?>><?php sc21_staff_field_error( $errors, 'full_name', 'sc21-full-name' ); ?></p>
+						<p><label for="sc21-category"><?php esc_html_e( 'Κατηγορία', 'school-contact' ); ?> <span class="sc21-field-required"><?php esc_html_e( '(υποχρεωτικό)', 'school-contact' ); ?></span></label><select id="sc21-category" name="category" required<?php sc21_staff_field_attributes( $errors, 'category', 'sc21-category' ); ?>><?php foreach ( sc21_categories() as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $staff['category'], $key ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select><?php sc21_staff_field_error( $errors, 'category', 'sc21-category' ); ?></p>
+						<p><label for="sc21-specialty"><?php esc_html_e( 'Ειδικότητα', 'school-contact' ); ?> <span class="sc21-field-required"><?php esc_html_e( '(υποχρεωτικό)', 'school-contact' ); ?></span></label><input id="sc21-specialty" name="specialty" type="text" maxlength="120" required value="<?php echo esc_attr( $staff['specialty'] ); ?>"<?php sc21_staff_field_attributes( $errors, 'specialty', 'sc21-specialty' ); ?>><?php sc21_staff_field_error( $errors, 'specialty', 'sc21-specialty' ); ?></p>
+						<p><label for="sc21-classroom"><?php esc_html_e( 'Τμήμα', 'school-contact' ); ?> <span class="sc21-field-optional"><?php esc_html_e( '(προαιρετικό)', 'school-contact' ); ?></span></label><input id="sc21-classroom" name="classroom" type="text" maxlength="80" value="<?php echo esc_attr( $staff['classroom'] ); ?>"></p>
+					</div>
+				</section>
+				<section class="sc21-editor-section" aria-labelledby="sc21-contact-details-heading">
+					<h3 id="sc21-contact-details-heading"><?php esc_html_e( 'Στοιχεία επικοινωνίας', 'school-contact' ); ?></h3>
+					<p id="sc21-contact-email-help" class="description sc21-editor-section-description"><?php esc_html_e( 'Για τα διαθέσιμα μέλη προσωπικού απαιτείται τουλάχιστον μία έγκυρη διεύθυνση email. Όταν έχουν οριστεί δύο διαφορετικές διευθύνσεις, το μήνυμα αποστέλλεται και στις δύο.', 'school-contact' ); ?></p>
+					<div class="sc21-admin-grid">
+						<p class="sc21-field-full"><label for="sc21-official-email"><?php esc_html_e( 'Υπηρεσιακό email', 'school-contact' ); ?> <span class="sc21-field-optional"><?php esc_html_e( '(προαιρετικό)', 'school-contact' ); ?></span></label><input id="sc21-official-email" name="official_email" type="email" maxlength="254" value="<?php echo esc_attr( $staff['official_email'] ); ?>"<?php sc21_staff_field_attributes( $errors, 'official_email', 'sc21-official-email' ); ?>><?php sc21_staff_field_error( $errors, 'official_email', 'sc21-official-email' ); ?></p>
+						<p class="sc21-field-full"><label for="sc21-alternative-email"><?php esc_html_e( 'Εναλλακτικό email', 'school-contact' ); ?> <span class="sc21-field-optional"><?php esc_html_e( '(προαιρετικό)', 'school-contact' ); ?></span></label><input id="sc21-alternative-email" name="alternative_email" type="email" maxlength="254" value="<?php echo esc_attr( $staff['alternative_email'] ); ?>"<?php sc21_staff_field_attributes( $errors, 'alternative_email', 'sc21-alternative-email' ); ?>><?php sc21_staff_field_error( $errors, 'alternative_email', 'sc21-alternative-email' ); ?></p>
+					</div>
+				</section>
+				<section class="sc21-editor-section" aria-labelledby="sc21-availability-heading">
+					<h3 id="sc21-availability-heading"><?php esc_html_e( 'Διαθεσιμότητα', 'school-contact' ); ?></h3>
+					<p class="sc21-availability-field"><label><input name="active" type="checkbox" value="1" <?php checked( ! empty( $staff['active'] ) ); ?>> <span><?php esc_html_e( 'Διαθέσιμος ως παραλήπτης', 'school-contact' ); ?></span></label><span class="description"><?php esc_html_e( 'Οι διαθέσιμοι παραλήπτες εμφανίζονται στη δημόσια φόρμα επικοινωνίας.', 'school-contact' ); ?></span></p>
+				</section>
+			</div>
 		</form>
 		<footer class="sc21-modal-footer"><div><?php if ( $is_edit ) : ?><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="sc21-delete" onsubmit="return confirm('<?php echo esc_js( __( 'Να διαγραφεί αυτό το μέλος του προσωπικού;', 'school-contact' ) ); ?>');"><input type="hidden" name="action" value="sc21_delete_staff"><input type="hidden" name="staff_id" value="<?php echo esc_attr( $staff['id'] ); ?>"><?php sc21_staff_context_fields( $state ); wp_nonce_field( 'sc21_delete_staff_' . $staff['id'] ); ?><button type="submit" class="button-link-delete"><?php esc_html_e( 'Διαγραφή', 'school-contact' ); ?></button></form><?php endif; ?></div><div class="sc21-modal-footer-actions"><a class="button" href="<?php echo esc_url( sc21_admin_url( 'staff', sc21_staff_state_args( $state ) ) ); ?>"><?php esc_html_e( 'Ακύρωση', 'school-contact' ); ?></a><button form="<?php echo esc_attr( $form_id ); ?>" type="submit" class="button button-primary"><?php echo esc_html( $is_edit ? __( 'Αποθήκευση', 'school-contact' ) : __( 'Προσθήκη', 'school-contact' ) ); ?></button></div></footer>
 	</section>
@@ -387,7 +510,7 @@ function sc21_admin_page(): void {
 		<?php endforeach; ?>
 				</tbody></table>
 			</div>
-		<?php if ( 'add' === $action ) { sc21_admin_staff_form( array( 'id' => '', 'full_name' => '', 'specialty' => '', 'category' => 'classroom', 'classroom' => '', 'official_email' => '', 'alternative_email' => '', 'active' => false ), $state ); } elseif ( 'edit' === $action ) { foreach ( $all_staff as $staff ) { if ( $edit_id === ( $staff['id'] ?? '' ) ) { sc21_admin_staff_form( wp_parse_args( $staff, array( 'id' => '', 'full_name' => '', 'specialty' => '', 'category' => 'classroom', 'classroom' => '', 'official_email' => '', 'alternative_email' => '', 'active' => false ) ), $state ); break; } } } ?>
+		<?php if ( 'add' === $action ) { sc21_admin_staff_form( array( 'id' => '', 'full_name' => '', 'specialty' => '', 'category' => 'classroom', 'classroom' => '', 'official_email' => '', 'alternative_email' => '', 'active' => false ), $state, $all_staff ); } elseif ( 'edit' === $action ) { foreach ( $all_staff as $staff ) { if ( $edit_id === ( $staff['id'] ?? '' ) ) { sc21_admin_staff_form( wp_parse_args( $staff, array( 'id' => '', 'full_name' => '', 'specialty' => '', 'category' => 'classroom', 'classroom' => '', 'official_email' => '', 'alternative_email' => '', 'active' => false ) ), $state, $all_staff ); break; } } } ?>
 		</section>
 	<?php endif; ?>
 	</div>

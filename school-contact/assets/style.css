@@ -6,6 +6,7 @@
 .sc21-form-intro p { margin: .45rem 0 0; color: #50575e; font-size: .9375rem; line-height: 1.5; }
 .sc21-form-section { margin: 0; padding: 0; }
 .sc21-form-intro + .sc21-form-section { margin-top: 1rem; }
+.sc21-form-intro + .sc21-public-validation-summary + .sc21-form-section, .sc21-form-intro + .sc21-public-notice + .sc21-form-section, .sc21-form-intro + .sc21-public-notice + .sc21-public-validation-summary + .sc21-form-section { margin-top: 1rem; }
 .sc21-form-section + .sc21-form-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #dcdcde; }
 .sc21-form-section > p:last-child, .sc21-form-section > .sc21-form-row > p { margin-bottom: 0; }
 .sc21-form-section-heading { display: flex; align-items: center; gap: .45rem; margin: 0 0 1rem; font: inherit; font-size: 1.125rem; font-weight: 600; line-height: 1.35; }
@@ -36,9 +37,29 @@ html.sc21-tooltip-enhanced .sc21-tooltip-fallback { display: none; }
 .sc21-message { padding: .9rem; border-radius: 4px; }
 .sc21-success { background: #edfaef; border: 1px solid #00a32a; }
 .sc21-error { background: #fcf0f1; border: 1px solid #d63638; }
+.sc21-submission-success { padding: 1.5rem; border: 1px solid #00a32a; border-radius: 8px; background: #edfaef; color: #1d2327; text-align: center; }
+.sc21-submission-success svg { width: 2rem; height: 2rem; fill: none; stroke: #008a20; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.2; }
+.sc21-submission-success h2 { margin: .55rem 0 0; font: inherit; font-size: 1.25rem; font-weight: 600; }
+.sc21-submission-success p { margin: .55rem auto 1rem; max-width: 42rem; line-height: 1.5; }
+.sc21-success-action { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: .7rem 1.1rem; border-radius: 4px; background: #135e96; color: #fff; font-weight: 600; text-decoration: none; }
+.sc21-success-action:hover, .sc21-success-action:focus { background: #0a4b78; color: #fff; }
+.sc21-success-action:focus { outline: 3px solid #2271b1; outline-offset: 2px; }
+.sc21-form .sc21-public-notice { margin: .8rem 0 0; padding: .7rem .85rem; border: 0; border-left: 4px solid #b32d2e; border-radius: 0; background: #fcf0f1; color: #8a2424; font-size: 1rem; font-weight: 500; line-height: 1.45; }
+.sc21-form .sc21-public-notice strong { display: block; font-size: 1rem; font-weight: 500; }
+.sc21-form .sc21-public-notice p { margin: .35rem 0 0; font-size: .9375rem; font-weight: 400; line-height: 1.45; }
+.sc21-public-validation-summary { margin: .8rem 0 0; padding: .7rem .85rem; border-left: 4px solid #b32d2e; background: #fcf0f1; color: #8a2424; font-size: 1rem; font-weight: 500; line-height: 1.45; }
+.sc21-public-field-error { display: block; margin-top: .3rem; color: #8a2424; font-size: .9375rem; font-weight: 500; line-height: 1.45; }
+.sc21-form input[aria-invalid="true"], .sc21-form select[aria-invalid="true"], .sc21-form textarea[aria-invalid="true"] { border-color: #b32d2e; box-shadow: 0 0 0 1px #b32d2e; }
+.sc21-form input[aria-invalid="true"]:focus, .sc21-form select[aria-invalid="true"]:focus, .sc21-form textarea[aria-invalid="true"]:focus { border-color: #b32d2e; box-shadow: 0 0 0 1px #b32d2e; }
 .sc21-hp { position: absolute !important; overflow: hidden !important; width: 1px !important; height: 1px !important; clip: rect(1px, 1px, 1px, 1px); }
 .sc21-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .sc21-form-footer p { margin-bottom: 0; }
+.sc21-form .sc21-submit-spinner { display: none; width: .9em; height: .9em; margin-left: .45rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: -.08em; animation: sc21-submit-spin .7s linear infinite; }
+.sc21-form button.is-submitting { cursor: progress; }
+.sc21-form button.is-submitting .sc21-submit-spinner { display: inline-block; }
+.sc21-form-wrap .sc21-submission-status { min-height: 1.45em; margin: .45rem 0 0; color: #50575e; font-size: .9375rem; line-height: 1.45; }
+@keyframes sc21-submit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .sc21-form .sc21-submit-spinner { animation: none; } }
 .sc21-admin { max-width: 1600px; }
 .sc21-admin-header { margin: 1.25rem 0 0; }
 .sc21-admin-brand { display: flex; align-items: center; gap: 1rem; min-height: 52px; }

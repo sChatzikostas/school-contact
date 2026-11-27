@@ -154,15 +154,91 @@ function sc21_save_general(): void {
 	$school_name = sc21_admin_post_string( 'school_name' );
 	$admin_email = sc21_admin_post_string( 'admin_email' );
 	$principal_name = sc21_admin_post_string( 'principal_name' );
-	if ( null === $school_name || null === $admin_email || null === $principal_name || sc21_text_length( $school_name ) > 150 || sc21_text_length( $principal_name ) > 120 || ! is_email( $admin_email ) ) {
+	if ( null === $school_name || null === $admin_email || null === $principal_name ) {
 		sc21_admin_redirect( 'general_error', 'settings' );
 	}
+	$sanitized_school_name = sanitize_text_field( $school_name );
+	$errors = array();
+	if ( '' === trim( $sanitized_school_name ) ) {
+		$errors[] = 'school_name';
+	} elseif ( sc21_text_length( $school_name ) > 150 ) {
+		$errors[] = 'school_name_length';
+	}
+	if ( sc21_text_length( $principal_name ) > 120 ) {
+		$errors[] = 'principal_name';
+	}
+	if ( sc21_text_length( $admin_email ) > 254 ) {
+		$errors[] = 'admin_email_length';
+	} elseif ( '' === trim( $admin_email ) || ! is_email( $admin_email ) ) {
+		$errors[] = 'admin_email';
+	}
+	if ( $errors ) {
+		sc21_general_validation_redirect( $errors );
+	}
 	$options                = sc21_get_options();
-	$options['school_name'] = sanitize_text_field( $school_name );
+	$options['school_name'] = $sanitized_school_name;
 	$options['admin_email'] = sanitize_email( $admin_email );
 	$options['principal_name'] = sanitize_text_field( $principal_name );
 	if ( ! sc21_update_options( $options ) ) { sc21_admin_redirect( 'persistence_error', 'settings' ); }
 	sc21_admin_redirect( 'general_saved', 'settings' );
+}
+
+function sc21_general_validation_messages(): array {
+	return array(
+		'school_name'        => __( 'Συμπληρώστε το όνομα του σχολείου.', 'school-contact' ),
+		'school_name_length' => __( 'Το όνομα του σχολείου δεν μπορεί να υπερβαίνει τους 150 χαρακτήρες.', 'school-contact' ),
+		'principal_name'     => __( 'Το ονοματεπώνυμο διευθυντή / διευθύντριας είναι πολύ μεγάλο.', 'school-contact' ),
+		'admin_email_length' => __( 'Η διεύθυνση email δεν μπορεί να υπερβαίνει τους 254 χαρακτήρες.', 'school-contact' ),
+		'admin_email'        => __( 'Εισαγάγετε μια έγκυρη διεύθυνση email.', 'school-contact' ),
+	);
+}
+
+function sc21_general_validation_redirect( array $errors ): void {
+	$allowed = array_keys( sc21_general_validation_messages() );
+	$errors  = array_values( array_intersect( $allowed, $errors ) );
+	sc21_admin_redirect( 'general_validation', 'settings', $errors ? array( 'sc21_errors' => implode( ',', $errors ) ) : array() );
+}
+
+function sc21_general_form_errors(): array {
+	$raw      = isset( $_GET['sc21_errors'] ) && is_string( $_GET['sc21_errors'] ) ? wp_unslash( $_GET['sc21_errors'] ) : '';
+	$messages = sc21_general_validation_messages();
+	$fields   = array( 'school_name_length' => 'school_name' );
+	$errors   = array();
+	foreach ( explode( ',', $raw ) as $code ) {
+		$code = sanitize_key( $code );
+		if ( isset( $messages[ $code ] ) ) {
+			$errors[ $fields[ $code ] ?? $code ] = $messages[ $code ];
+		}
+	}
+	return $errors;
+}
+
+function sc21_general_field_attributes( array $errors, string $field, string $id, string $help_id = '' ): void {
+	$describedby = $help_id ? array( $help_id ) : array();
+	if ( isset( $errors[ $field ] ) ) {
+		$describedby[] = $id . '-error';
+		printf( ' aria-invalid="true"' );
+	}
+	if ( $describedby ) {
+		printf( ' aria-describedby="%s"', esc_attr( implode( ' ', $describedby ) ) );
+	}
+}
+
+function sc21_general_field_error( array $errors, string $field, string $id ): void {
+	if ( isset( $errors[ $field ] ) ) {
+		printf( '<span id="%1$s-error" class="sc21-field-error">%2$s</span>', esc_attr( $id ), esc_html( $errors[ $field ] ) );
+	}
+}
+
+function sc21_configuration_readiness( array $options ): array {
+	$school_name = isset( $options['school_name'] ) && is_string( $options['school_name'] ) ? $options['school_name'] : '';
+	$admin_email = isset( $options['admin_email'] ) && is_string( $options['admin_email'] ) ? $options['admin_email'] : '';
+	$staff       = isset( $options['staff'] ) && is_array( $options['staff'] ) ? $options['staff'] : array();
+	return array(
+		'school_name' => '' !== trim( $school_name ) && sc21_text_length( $school_name ) <= 150,
+		'admin_email' => '' !== trim( $admin_email ) && is_email( $admin_email ),
+		'staff_count' => count( array_filter( $staff, static fn( $member ): bool => is_array( $member ) && sc21_valid_staff( $member ) ) ),
+	);
 }
 
 function sc21_clean_staff( string $id = '' ) {
@@ -310,6 +386,7 @@ function sc21_admin_notice(): void {
 	$notice = isset( $_GET['sc21_notice'] ) && is_string( $_GET['sc21_notice'] ) ? sanitize_key( wp_unslash( $_GET['sc21_notice'] ) ) : '';
 	$messages = array(
 		'general_saved'     => __( 'Οι γενικές ρυθμίσεις αποθηκεύτηκαν.', 'school-contact' ),
+		'general_validation'=> __( 'Ελέγξτε τα επισημασμένα πεδία πριν αποθηκεύσετε τις ρυθμίσεις.', 'school-contact' ),
 		'staff_added'       => __( 'Το μέλος του προσωπικού προστέθηκε.', 'school-contact' ),
 		'staff_updated'     => __( 'Το μέλος του προσωπικού ενημερώθηκε.', 'school-contact' ),
 		'staff_deleted'     => __( 'Το μέλος του προσωπικού διαγράφηκε.', 'school-contact' ),
@@ -324,7 +401,7 @@ function sc21_admin_notice(): void {
 		'persistence_error' => __( 'Η αποθήκευση δεν ολοκληρώθηκε. Παρακαλούμε δοκιμάστε ξανά.', 'school-contact' ),
 	);
 	if ( isset( $messages[ $notice ] ) ) {
-		$error = str_ends_with( $notice, 'error' ) || in_array( $notice, array( 'invalid_staff', 'invalid_email', 'missing_email', 'staff_validation', 'persistence_error' ), true );
+		$error = str_ends_with( $notice, 'error' ) || in_array( $notice, array( 'general_validation', 'invalid_staff', 'invalid_email', 'missing_email', 'staff_validation', 'persistence_error' ), true );
 		printf( '<div class="notice %1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $error ? 'notice-error' : 'notice-success' ), esc_html( $messages[ $notice ] ) );
 	}
 }
@@ -429,30 +506,32 @@ function sc21_admin_staff_form( array $staff, array $state, array $staff_records
 
 function sc21_render_help_page(): void {
 	?>
-	<section class="sc21-card sc21-help-intro">
-		<h2><?php esc_html_e( 'Σχετικά με το SchoolContact', 'school-contact' ); ?></h2>
-		<p class="sc21-product-tagline">Connecting schools and families.</p>
-		<p><?php esc_html_e( 'Ένα απλό εργαλείο για ασφαλή επικοινωνία μεταξύ σχολείου, οικογενειών και προσωπικού.', 'school-contact' ); ?></p>
-		<p><strong><?php esc_html_e( 'Σχεδιασμός & ανάπτυξη:', 'school-contact' ); ?></strong> <?php esc_html_e( 'Σωτήρης Χατζηκώστας', 'school-contact' ); ?></p>
-		<p class="sc21-product-meta"><span><?php printf( esc_html__( 'Έκδοση: %s', 'school-contact' ), esc_html( SC21_VERSION ) ); ?></span><span><?php esc_html_e( 'Άδεια: GPL-2.0-or-later', 'school-contact' ); ?></span><span>Free &amp; Open Source</span></p>
-		<nav class="sc21-contact-links" aria-label="<?php esc_attr_e( 'Στοιχεία επικοινωνίας SchoolContact', 'school-contact' ); ?>">
-			<a href="mailto:s.chatzikostas@gmail.com" aria-label="<?php esc_attr_e( 'Email Sotiris Chatzikostas', 'school-contact' ); ?>"><span class="dashicons dashicons-email" aria-hidden="true"></span><span>Email</span></a>
-			<a href="https://www.linkedin.com/in/sotiris-chatzikostas/" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e( 'LinkedIn Sotiris Chatzikostas', 'school-contact' ); ?>"><span class="sc21-link-icon" aria-hidden="true">in</span><span>LinkedIn</span></a>
-			<a href="https://github.com/sChatzikostas/school-contact" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e( 'Προγραμματισμένο GitHub repository SchoolContact', 'school-contact' ); ?>"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span><span>GitHub</span></a>
-		</nav>
-	</section>
-	<section class="sc21-card sc21-help-guide">
-		<h2><?php esc_html_e( 'Οδηγός χρήσης', 'school-contact' ); ?></h2>
+	<div class="sc21-two-column sc21-help-layout">
+		<section class="sc21-card sc21-help-guide" aria-labelledby="sc21-help-guide-heading">
+		<h2 id="sc21-help-guide-heading"><?php esc_html_e( 'Οδηγός χρήσης', 'school-contact' ); ?></h2>
 		<details><summary><?php esc_html_e( 'Εγκατάσταση του πρόσθετου', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Χρειάζεστε πρόσβαση διαχειριστή και μια λειτουργική εγκατάσταση WordPress. Πριν ξεκινήσετε, προτείνεται αντίγραφο ασφαλείας του ιστοτόπου.', 'school-contact' ); ?></p><ol><li><?php esc_html_e( 'Κατεβάστε το αρχείο εγκατάστασης ZIP.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Επιλέξτε Πρόσθετα - Προσθήκη νέου - Μεταφόρτωση προσθέτου.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Επιλέξτε το ZIP, εγκαταστήστε το και ενεργοποιήστε το SchoolContact.', 'school-contact' ); ?></li></ol></div></details>
 		<details><summary><?php esc_html_e( 'Αρχική ρύθμιση', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Από το μενού Επικοινωνία με το σχολείο, ανοίξτε τις Γενικές ρυθμίσεις. Συμπληρώστε το όνομα του σχολείου, το ονοματεπώνυμο διευθυντή ή διευθύντριας και την email διεύθυνση του σχολείου.', 'school-contact' ); ?></p></div></details>
 		<details><summary><?php esc_html_e( 'Διαχείριση προσωπικού', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Προσθέστε, επεξεργαστείτε ή διαγράψτε προσωπικό από την καρτέλα Προσωπικό. Μπορείτε να ενεργοποιείτε ή να απενεργοποιείτε κάθε παραλήπτη χωρίς να διαγράφετε τα στοιχεία του.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Επιλέξτε κατηγορία παραλήπτη, συμπληρώστε ειδικότητα και προαιρετικά τμήμα. Καταχωρίστε υπηρεσιακό email και, μόνο με έγκριση του σχολείου, εναλλακτικό email. Όταν υπάρχουν και οι δύο διευθύνσεις, τα μηνύματα αποστέλλονται και στις δύο.', 'school-contact' ); ?></p></div></details>
-		<details><summary><?php esc_html_e( 'Δημοσίευση της φόρμας', 'school-contact' ); ?></summary><div><ol><li><?php esc_html_e( 'Δημιουργήστε ή επεξεργαστείτε μια σελίδα WordPress.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Στον επεξεργαστή επιλέξτε το κουμπί προσθήκης block, αναζητήστε το block Shortcode και επιλέξτε το.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Επικολλήστε το ακόλουθο shortcode στο block:', 'school-contact' ); ?></li></ol><p><code id="sc21-shortcode">[school_communication]</code> <button type="button" class="button sc21-copy-shortcode" data-sc21-copy="[school_communication]" aria-describedby="sc21-copy-feedback"><?php esc_html_e( 'Αντιγραφή shortcode', 'school-contact' ); ?></button> <span id="sc21-copy-feedback" class="screen-reader-text" aria-live="polite"></span></p><p><?php esc_html_e( 'Δημοσιεύστε τη σελίδα και, αν θέλετε, προσθέστε την στο μενού πλοήγησης του ιστοτόπου.', 'school-contact' ); ?></p></div></details>
+		<details id="sc21-publication-guide"><summary><?php esc_html_e( 'Δημοσίευση της φόρμας', 'school-contact' ); ?></summary><div><ol><li><?php esc_html_e( 'Δημιουργήστε ή επεξεργαστείτε μια σελίδα WordPress.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Στον επεξεργαστή επιλέξτε το κουμπί προσθήκης block, αναζητήστε το block Shortcode και επιλέξτε το.', 'school-contact' ); ?></li><li><?php esc_html_e( 'Επικολλήστε το ακόλουθο shortcode στο block:', 'school-contact' ); ?></li></ol><p><code id="sc21-shortcode">[school_communication]</code> <button type="button" class="button sc21-copy-shortcode" data-sc21-copy="[school_communication]" aria-describedby="sc21-copy-feedback"><?php esc_html_e( 'Αντιγραφή shortcode', 'school-contact' ); ?></button> <span id="sc21-copy-feedback" class="screen-reader-text" aria-live="polite"></span></p><p><?php esc_html_e( 'Δημοσιεύστε τη σελίδα και, αν θέλετε, προσθέστε την στο μενού πλοήγησης του ιστοτόπου.', 'school-contact' ); ?></p></div></details>
 		<details><summary><?php esc_html_e( 'Πώς αποστέλλονται τα μηνύματα', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Τα μηνύματα προς το προσωπικό στέλνονται στις καταχωρισμένες διευθύνσεις του. Η διεύθυνση του σχολείου λαμβάνει κοινοποίηση, εκτός αν είναι ήδη παραλήπτης. Τα μηνύματα που απευθύνονται απευθείας στο σχολείο δεν λαμβάνουν διπλή κοινοποίηση.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Ο παραλήπτης μπορεί να απαντήσει απευθείας στον γονέα ή κηδεμόνα. Η επιτυχής υποβολή της φόρμας δεν αποτελεί εγγύηση τελικής παράδοσης του email.', 'school-contact' ); ?></p></div></details>
-		<details><summary><?php esc_html_e( 'Δοκιμή λειτουργίας', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Υποβάλετε ένα δοκιμαστικό μήνυμα με ελεγχόμενη διεύθυνση email. Επιβεβαιώστε ότι έφτασε στον σωστό παραλήπτη και ότι το Reply-To αντιστοιχεί στη διεύθυνση του αποστολέα.', 'school-contact' ); ?></p></div></details>
+		<details id="sc21-test-delivery-guide"><summary><?php esc_html_e( 'Δοκιμή λειτουργίας', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Υποβάλετε ένα δοκιμαστικό μήνυμα με ελεγχόμενη διεύθυνση email. Επιβεβαιώστε ότι έφτασε στον σωστό παραλήπτη και ότι το Reply-To αντιστοιχεί στη διεύθυνση του αποστολέα.', 'school-contact' ); ?></p></div></details>
 		<details><summary><?php esc_html_e( 'Ενημέρωση για το νέο σχολικό έτος', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Ενημερώστε το προσωπικό, τα τμήματα, τις ειδικότητες και τη διαθεσιμότητα από την καρτέλα Προσωπικό. Δεν χρειάζεται επανεγκατάσταση του πρόσθετου.', 'school-contact' ); ?></p></div></details>
 		<details><summary><?php esc_html_e( 'Συχνές ερωτήσεις και αντιμετώπιση προβλημάτων', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Αν τα μηνύματα δεν φτάνουν, ελέγξτε τις διευθύνσεις email, τους φακέλους ανεπιθύμητης αλληλογραφίας και τη ρύθμιση αποστολής email του WordPress. Βεβαιωθείτε ότι ο παραλήπτης είναι διαθέσιμος και διαθέτει έγκυρο email.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Η φόρμα μπορεί προσωρινά να περιορίσει πολλές προσπάθειες. Εξαιρέστε τη σελίδα επικοινωνίας από full-page cache, ώστε να μην εμφανίζονται παλιοί κωδικοί φόρμας. Για αλλαγές σε φιλοξενία ή ρύθμιση mail, επικοινωνήστε με τον διαχειριστή του ιστοτόπου.', 'school-contact' ); ?></p></div></details>
-		<details><summary><?php esc_html_e( 'Ασφάλεια και προσωπικά δεδομένα', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Το πρόσθετο δεν αποθηκεύει το περιεχόμενο μηνυμάτων ή στοιχεία επικοινωνίας γονέων. Οι διευθύνσεις email του προσωπικού δεν εμφανίζονται στη δημόσια φόρμα. Η ενσωματωμένη προστασία κατά ανεπιθύμητων ενεργειών μειώνει την κατάχρηση, χωρίς να αποτελεί απόλυτη εγγύηση.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Η χρήση εναλλακτικών διευθύνσεων απαιτεί έγκριση του σχολείου. Οι διαμορφωμένοι παραλήπτες μπορεί να βλέπουν ο ένας τον άλλον στις κεφαλίδες του email και τα μηνύματα παραμένουν στα γραμματοκιβώτια των παραληπτών. Το σχολείο οφείλει να παρέχει κατάλληλη ενημέρωση απορρήτου.', 'school-contact' ); ?></p></div></details>
-	</section>
+		<details id="sc21-privacy-guide"><summary><?php esc_html_e( 'Ασφάλεια και προσωπικά δεδομένα', 'school-contact' ); ?></summary><div><p><?php esc_html_e( 'Το πρόσθετο δεν αποθηκεύει το περιεχόμενο μηνυμάτων ή στοιχεία επικοινωνίας γονέων. Οι διευθύνσεις email του προσωπικού δεν εμφανίζονται στη δημόσια φόρμα. Η ενσωματωμένη προστασία κατά ανεπιθύμητων ενεργειών μειώνει την κατάχρηση, χωρίς να αποτελεί απόλυτη εγγύηση.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Η χρήση εναλλακτικών διευθύνσεων απαιτεί έγκριση του σχολείου. Οι διαμορφωμένοι παραλήπτες μπορεί να βλέπουν ο ένας τον άλλον στις κεφαλίδες του email και τα μηνύματα παραμένουν στα γραμματοκιβώτια των παραληπτών. Το σχολείο οφείλει να παρέχει κατάλληλη ενημέρωση απορρήτου.', 'school-contact' ); ?></p></div></details>
+		</section>
+		<aside class="sc21-card sc21-help-intro" aria-labelledby="sc21-help-about-heading">
+			<h2 id="sc21-help-about-heading"><?php esc_html_e( 'Σχετικά με το SchoolContact', 'school-contact' ); ?></h2>
+			<p class="sc21-product-tagline">Connecting schools and families.</p>
+			<p><?php esc_html_e( 'Ένα απλό εργαλείο για ασφαλή επικοινωνία μεταξύ σχολείου, οικογενειών και προσωπικού.', 'school-contact' ); ?></p>
+			<p><strong><?php esc_html_e( 'Σχεδιασμός & ανάπτυξη:', 'school-contact' ); ?></strong> <?php esc_html_e( 'Σωτήρης Χατζηκώστας', 'school-contact' ); ?></p>
+			<p class="sc21-product-meta"><span><?php printf( esc_html__( 'Έκδοση: %s', 'school-contact' ), esc_html( SC21_VERSION ) ); ?></span><span><?php esc_html_e( 'Άδεια: GPL-2.0-or-later', 'school-contact' ); ?></span><span>Free &amp; Open Source</span></p>
+			<nav class="sc21-contact-links" aria-label="<?php esc_attr_e( 'Στοιχεία επικοινωνίας SchoolContact', 'school-contact' ); ?>">
+				<a href="mailto:s.chatzikostas@gmail.com" aria-label="<?php esc_attr_e( 'Email Sotiris Chatzikostas', 'school-contact' ); ?>"><span class="dashicons dashicons-email" aria-hidden="true"></span><span>Email</span></a>
+				<a href="https://www.linkedin.com/in/sotiris-chatzikostas/" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e( 'LinkedIn Sotiris Chatzikostas', 'school-contact' ); ?>"><span class="sc21-link-icon" aria-hidden="true">in</span><span>LinkedIn</span></a>
+				<a href="https://github.com/sChatzikostas/school-contact" target="_blank" rel="noopener noreferrer" aria-label="<?php esc_attr_e( 'Προγραμματισμένο GitHub repository SchoolContact', 'school-contact' ); ?>"><span class="dashicons dashicons-admin-generic" aria-hidden="true"></span><span>GitHub</span></a>
+			</nav>
+		</aside>
+	</div>
 	<?php
 }
 
@@ -479,8 +558,56 @@ function sc21_admin_page(): void {
 		</header>
 		<nav class="nav-tab-wrapper" aria-label="<?php esc_attr_e( 'Ενότητες SchoolContact', 'school-contact' ); ?>"><a class="nav-tab <?php echo 'staff' === $tab ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( sc21_admin_url() ); ?>"><?php esc_html_e( 'Προσωπικό', 'school-contact' ); ?></a><a class="nav-tab <?php echo 'settings' === $tab ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( sc21_admin_url( 'settings' ) ); ?>"><?php esc_html_e( 'Γενικές ρυθμίσεις', 'school-contact' ); ?></a><a class="nav-tab <?php echo 'about' === $tab ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( sc21_admin_url( 'about' ) ); ?>"><?php esc_html_e( 'Βοήθεια & πληροφορίες', 'school-contact' ); ?></a></nav>
 		<div class="sc21-admin-notices"><?php sc21_admin_notice(); ?></div>
-	<?php if ( 'settings' === $tab ) : ?>
-		<section class="sc21-card sc21-settings-content"><h2><?php esc_html_e( 'Γενικές ρυθμίσεις', 'school-contact' ); ?></h2><p><?php esc_html_e( 'Τα μηνύματα προς το προσωπικό σχολείου κοινοποιούνται αυτόματα στην email διεύθυνση σχολείου.', 'school-contact' ); ?></p><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><input type="hidden" name="action" value="sc21_save_general"><?php wp_nonce_field( 'sc21_save_general' ); ?><p><label for="sc21-school-name"><?php esc_html_e( 'Όνομα σχολείου', 'school-contact' ); ?></label><input id="sc21-school-name" name="school_name" type="text" maxlength="150" required value="<?php echo esc_attr( $options['school_name'] ); ?>"></p><p><label for="sc21-principal-name"><?php esc_html_e( 'Ονοματεπώνυμο διευθυντή / διευθύντριας', 'school-contact' ); ?></label><input id="sc21-principal-name" name="principal_name" type="text" maxlength="120" value="<?php echo esc_attr( $options['principal_name'] ?? '' ); ?>"></p><p><label for="sc21-admin-email"><?php esc_html_e( 'Email διεύθυνσης σχολείου', 'school-contact' ); ?></label><input id="sc21-admin-email" name="admin_email" type="email" maxlength="254" required value="<?php echo esc_attr( $options['admin_email'] ); ?>"></p><?php submit_button( __( 'Αποθήκευση ρυθμίσεων', 'school-contact' ) ); ?></form></section><div class="notice notice-info inline"><p><?php esc_html_e( 'Οι εναλλακτικές διευθύνσεις email μπορεί να μην ανήκουν στο sch.gr. Χρησιμοποιήστε τες μόνο όταν έχουν εγκριθεί από το σχολείο. Όταν υπάρχουν και οι δύο διευθύνσεις, η επικοινωνία αποστέλλεται και στις δύο.', 'school-contact' ); ?></p><p><?php esc_html_e( 'Το κείμενο απορρήτου της δημόσιας φόρμας είναι προσωρινό και χρειάζεται έγκριση από το σχολείο.', 'school-contact' ); ?></p></div><p><?php esc_html_e( 'Shortcode:', 'school-contact' ); ?> <code>[school_communication]</code></p>
+	<?php if ( 'settings' === $tab ) : $settings_errors = sc21_general_form_errors(); $readiness = sc21_configuration_readiness( $options ); ?>
+		<div class="sc21-two-column sc21-settings-layout">
+			<div class="sc21-settings-primary">
+				<section class="sc21-card sc21-settings-content" aria-labelledby="sc21-settings-heading">
+					<h2 id="sc21-settings-heading"><?php esc_html_e( 'Γενικές ρυθμίσεις', 'school-contact' ); ?></h2>
+					<form id="sc21-general-settings-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="sc21_save_general">
+						<?php wp_nonce_field( 'sc21_save_general' ); ?>
+						<div id="sc21-settings-validation-summary" class="sc21-editor-validation-summary" role="alert" tabindex="-1"<?php echo $settings_errors ? '' : ' hidden'; ?>><p><?php esc_html_e( 'Ελέγξτε τα επισημασμένα πεδία πριν αποθηκεύσετε τις ρυθμίσεις.', 'school-contact' ); ?></p></div>
+						<section class="sc21-settings-section" aria-labelledby="sc21-school-details-heading">
+							<h3 id="sc21-school-details-heading"><?php esc_html_e( 'Στοιχεία σχολείου', 'school-contact' ); ?></h3>
+							<p><label for="sc21-school-name"><?php esc_html_e( 'Όνομα σχολείου', 'school-contact' ); ?> <span class="sc21-field-required"><?php esc_html_e( '(υποχρεωτικό)', 'school-contact' ); ?></span></label><input id="sc21-school-name" name="school_name" type="text" maxlength="150" required value="<?php echo esc_attr( $options['school_name'] ); ?>"<?php sc21_general_field_attributes( $settings_errors, 'school_name', 'sc21-school-name' ); ?>><?php sc21_general_field_error( $settings_errors, 'school_name', 'sc21-school-name' ); ?></p>
+							<p><label for="sc21-principal-name"><?php esc_html_e( 'Ονοματεπώνυμο διευθυντή / διευθύντριας', 'school-contact' ); ?> <span class="sc21-field-optional"><?php esc_html_e( '(προαιρετικό)', 'school-contact' ); ?></span></label><input id="sc21-principal-name" name="principal_name" type="text" maxlength="120" value="<?php echo esc_attr( $options['principal_name'] ?? '' ); ?>"<?php sc21_general_field_attributes( $settings_errors, 'principal_name', 'sc21-principal-name' ); ?>><?php sc21_general_field_error( $settings_errors, 'principal_name', 'sc21-principal-name' ); ?></p>
+						</section>
+						<section class="sc21-settings-section" aria-labelledby="sc21-school-contact-heading">
+							<h3 id="sc21-school-contact-heading"><?php esc_html_e( 'Επικοινωνία με τη διεύθυνση', 'school-contact' ); ?></h3>
+							<p><label for="sc21-admin-email"><?php esc_html_e( 'Email διεύθυνσης σχολείου', 'school-contact' ); ?> <span class="sc21-field-required"><?php esc_html_e( '(υποχρεωτικό)', 'school-contact' ); ?></span></label><input id="sc21-admin-email" name="admin_email" type="email" maxlength="254" required value="<?php echo esc_attr( $options['admin_email'] ); ?>"<?php sc21_general_field_attributes( $settings_errors, 'admin_email', 'sc21-admin-email', 'sc21-admin-email-help' ); ?>><?php sc21_general_field_error( $settings_errors, 'admin_email', 'sc21-admin-email' ); ?><span id="sc21-admin-email-help" class="description"><?php esc_html_e( 'Τα μηνύματα προς το προσωπικό κοινοποιούνται αυτόματα στη διεύθυνση αυτή. Τα μηνύματα προς τη διεύθυνση του σχολείου δεν λαμβάνουν διπλή κοινοποίηση.', 'school-contact' ); ?></span></p>
+						</section>
+						<?php submit_button( __( 'Αποθήκευση ρυθμίσεων', 'school-contact' ) ); ?>
+					</form>
+				</section>
+				<section class="sc21-card sc21-shortcode-panel" aria-labelledby="sc21-shortcode-heading">
+					<h2 id="sc21-shortcode-heading"><?php esc_html_e( 'Δημοσίευση φόρμας επικοινωνίας', 'school-contact' ); ?></h2>
+					<p><?php esc_html_e( 'Εισαγάγετε το shortcode σε μια σελίδα WordPress για να εμφανίσετε τη φόρμα επικοινωνίας.', 'school-contact' ); ?></p>
+					<p class="sc21-shortcode-action"><code id="sc21-settings-shortcode">[school_communication]</code> <button type="button" class="button sc21-copy-shortcode" data-sc21-copy="[school_communication]" aria-describedby="sc21-settings-copy-feedback"><?php esc_html_e( 'Αντιγραφή shortcode', 'school-contact' ); ?></button> <span id="sc21-settings-copy-feedback" class="screen-reader-text" aria-live="polite"></span></p>
+					<p><a href="<?php echo esc_url( sc21_admin_url( 'about' ) . '#sc21-publication-guide' ); ?>"><?php esc_html_e( 'Δείτε αναλυτικές οδηγίες δημοσίευσης.', 'school-contact' ); ?></a></p>
+				</section>
+			</div>
+			<aside class="sc21-settings-support" aria-label="<?php esc_attr_e( 'Βοηθητικές πληροφορίες ρυθμίσεων', 'school-contact' ); ?>">
+				<section class="sc21-card sc21-settings-readiness" aria-labelledby="sc21-readiness-heading">
+					<h2 id="sc21-readiness-heading"><?php esc_html_e( 'Ετοιμότητα παραμετροποίησης', 'school-contact' ); ?></h2>
+					<p class="description"><?php esc_html_e( 'Κατάσταση βάσει των αποθηκευμένων ρυθμίσεων.', 'school-contact' ); ?></p>
+					<ul class="sc21-readiness-list">
+						<li class="<?php echo $readiness['school_name'] ? 'is-ready' : 'needs-attention'; ?>"><strong><?php esc_html_e( 'Όνομα σχολείου', 'school-contact' ); ?></strong><span><?php echo $readiness['school_name'] ? esc_html__( 'Έχει συμπληρωθεί', 'school-contact' ) : esc_html__( 'Συμπληρώστε το όνομα του σχολείου.', 'school-contact' ); ?></span></li>
+						<li class="<?php echo $readiness['admin_email'] ? 'is-ready' : 'needs-attention'; ?>"><strong><?php esc_html_e( 'Email διεύθυνσης σχολείου', 'school-contact' ); ?></strong><span><?php echo $readiness['admin_email'] ? esc_html__( 'Έγκυρη μορφή διεύθυνσης', 'school-contact' ) : esc_html__( 'Δηλώστε μια έγκυρη διεύθυνση email.', 'school-contact' ); ?></span></li>
+						<li class="<?php echo $readiness['staff_count'] ? 'is-ready' : 'needs-attention'; ?>"><strong><?php esc_html_e( 'Διαθέσιμο προσωπικό', 'school-contact' ); ?></strong><span><?php if ( 1 === $readiness['staff_count'] ) { esc_html_e( '1 διαθέσιμο μέλος προσωπικού.', 'school-contact' ); } elseif ( $readiness['staff_count'] > 1 ) { printf( esc_html__( '%d διαθέσιμα μέλη προσωπικού.', 'school-contact' ), (int) $readiness['staff_count'] ); } else { esc_html_e( 'Δεν υπάρχουν διαθέσιμοι παραλήπτες προσωπικού.', 'school-contact' ); } ?></span><?php if ( ! $readiness['staff_count'] ) : ?> <a href="<?php echo esc_url( sc21_admin_url( 'staff' ) ); ?>"><?php esc_html_e( 'Μετάβαση στο προσωπικό.', 'school-contact' ); ?></a><?php endif; ?></li>
+					</ul>
+					<h3 id="sc21-onboarding-actions-heading"><?php esc_html_e( 'Ενέργειες πριν από τη χρήση', 'school-contact' ); ?></h3>
+					<ul class="sc21-onboarding-actions" aria-labelledby="sc21-onboarding-actions-heading"><li><a href="<?php echo esc_url( sc21_admin_url( 'about' ) . '#sc21-publication-guide' ); ?>"><?php esc_html_e( 'Δημοσιεύστε τη φόρμα επικοινωνίας', 'school-contact' ); ?></a></li><li><a href="<?php echo esc_url( sc21_admin_url( 'about' ) . '#sc21-test-delivery-guide' ); ?>"><?php esc_html_e( 'Πραγματοποιήστε δοκιμαστική αποστολή', 'school-contact' ); ?></a></li><li><a href="<?php echo esc_url( sc21_admin_url( 'about' ) . '#sc21-privacy-guide' ); ?>"><?php esc_html_e( 'Ελέγξτε το κείμενο απορρήτου', 'school-contact' ); ?></a></li></ul>
+					<p class="description"><?php esc_html_e( 'Η ολοκλήρωση των ρυθμίσεων δεν εγγυάται την επιτυχή παράδοση email.', 'school-contact' ); ?></p>
+					<h3><?php esc_html_e( 'Χρειάζεστε βοήθεια;', 'school-contact' ); ?></h3>
+					<p><a href="<?php echo esc_url( sc21_admin_url( 'about' ) ); ?>"><?php esc_html_e( 'Ανοίξτε τον οδηγό χρήσης και τις συχνές ερωτήσεις.', 'school-contact' ); ?></a></p>
+				</section>
+				<section class="sc21-card sc21-settings-notes" aria-labelledby="sc21-settings-notes-heading">
+					<h2 id="sc21-settings-notes-heading"><?php esc_html_e( 'Χρήσιμες υπενθυμίσεις', 'school-contact' ); ?></h2>
+					<p><?php esc_html_e( 'Οι εναλλακτικές διευθύνσεις email μπορεί να μην ανήκουν στο sch.gr. Χρησιμοποιήστε τες μόνο όταν έχουν εγκριθεί από το σχολείο. Όταν υπάρχουν και οι δύο διευθύνσεις, η επικοινωνία αποστέλλεται και στις δύο.', 'school-contact' ); ?></p>
+					<p><?php esc_html_e( 'Το κείμενο απορρήτου της δημόσιας φόρμας είναι προσωρινό και χρειάζεται έγκριση από το σχολείο.', 'school-contact' ); ?></p>
+				</section>
+			</aside>
+		</div>
 	<?php elseif ( 'about' === $tab ) : ?>
 		<?php sc21_render_help_page(); ?>
 	<?php else :

@@ -29,6 +29,33 @@
 .sc21-admin-notices > .notice { margin: 1rem 0 0; }
 .sc21-card { max-width: 900px; margin: 1.5rem 0; padding: 1.25rem; border: 1px solid #dcdcde; background: #fff; }
 .sc21-settings-content, .sc21-admin > .notice.inline { max-width: 760px; }
+.sc21-two-column { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); align-items: start; gap: 1.5rem; max-width: 1200px; margin: 1.5rem 0; }
+.sc21-two-column > .sc21-card, .sc21-two-column > .sc21-settings-primary > .sc21-card, .sc21-two-column > .sc21-settings-support > .sc21-card { max-width: none; margin: 0; }
+.sc21-settings-primary, .sc21-settings-support { display: grid; gap: 1.5rem; }
+.sc21-settings-layout .sc21-settings-content form { max-width: 52rem; }
+.sc21-settings-layout .sc21-settings-section + .sc21-settings-section { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #dcdcde; }
+.sc21-settings-layout .sc21-settings-section h3, .sc21-settings-guidance h3 { margin: 0 0 .75rem; font-size: 1rem; }
+.sc21-settings-layout .sc21-settings-section p { margin: 0 0 1rem; }
+.sc21-settings-layout .description { display: block; margin-top: .4rem; }
+.sc21-shortcode-action { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.sc21-shortcode-action code { padding: .45rem .6rem; background: #f6f7f7; user-select: all; }
+.sc21-settings-guidance ol { margin: 0 0 1.25rem 1.5rem; }
+.sc21-settings-guidance li + li { margin-top: .5rem; }
+.sc21-settings-notes p:last-child, .sc21-shortcode-panel p:last-child { margin-bottom: 0; }
+.sc21-settings-readiness h3 { margin: 1.25rem 0 .75rem; font-size: 1rem; }
+.sc21-readiness-list, .sc21-onboarding-actions { margin: 0; padding: 0; list-style: none; }
+.sc21-readiness-list li { position: relative; padding: 0 0 1rem 1.6rem; }
+.sc21-readiness-list li + li { padding-top: 1rem; border-top: 1px solid #dcdcde; }
+.sc21-readiness-list li::before { position: absolute; top: .1rem; left: 0; display: grid; width: 1rem; height: 1rem; place-items: center; border-radius: 50%; color: #fff; font-size: .72rem; font-weight: 700; line-height: 1; }
+.sc21-readiness-list li.is-ready::before { background: #008a20; content: '✓'; }
+.sc21-readiness-list li.needs-attention::before { background: #996800; content: '!'; }
+.sc21-readiness-list strong, .sc21-readiness-list span { display: block; }
+.sc21-readiness-list span { margin-top: .2rem; }
+.sc21-readiness-list a { display: inline-block; margin-top: .35rem; }
+.sc21-onboarding-actions li { position: relative; padding-left: 1.3rem; }
+.sc21-onboarding-actions li + li { margin-top: .55rem; }
+.sc21-onboarding-actions li::before { position: absolute; left: 0; color: #50575e; content: '•'; }
+.sc21-help-layout .sc21-help-guide, .sc21-help-layout .sc21-help-intro { max-width: none; }
 .sc21-admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 1rem; }
 .sc21-staff-page { margin: 1.5rem 0; }
 .sc21-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
@@ -99,6 +126,8 @@
 .sc21-editor-validation-summary p { margin: 0; }
 .sc21-modal-body [aria-invalid="true"] { border-color: #d63638; box-shadow: 0 0 0 1px #d63638; }
 .sc21-modal-body [aria-invalid="true"]:focus { border-color: #b32d2e; box-shadow: 0 0 0 1px #b32d2e; }
+.sc21-settings-content [aria-invalid="true"] { border-color: #d63638; box-shadow: 0 0 0 1px #d63638; }
+.sc21-settings-content [aria-invalid="true"]:focus { border-color: #b32d2e; box-shadow: 0 0 0 1px #b32d2e; }
 .sc21-field-error { display: block; margin-top: .35rem; color: #b32d2e; font-weight: 600; }
 .sc21-field-warning { display: block; margin-top: .35rem; color: #7a4f01; font-weight: 600; }
 .sc21-availability-field > label { display: inline-flex; min-height: 24px; align-items: center; gap: .5rem; cursor: pointer; }
@@ -152,4 +181,5 @@ html.sc21-admin-enhanced .sc21-staff-filters { display: flex; align-items: cente
 .sc21-admin .sc21-staff-table tbody tr[hidden] { display: none !important; }
 @media (max-width: 600px) { .sc21-staff-dialog .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-staff-dialog .sc21-staff-editor { padding: 0; } .sc21-modal-header, .sc21-modal-body, .sc21-modal-footer, .sc21-unsaved-dialog-content, .sc21-unsaved-dialog-actions { padding-left: 1rem; padding-right: 1rem; } .sc21-modal-footer { align-items: flex-start; flex-direction: column; } .sc21-modal-footer-actions { width: 100%; justify-content: flex-end; } .sc21-unsaved-dialog-actions { align-items: stretch; } .sc21-unsaved-dialog-actions .button { width: 100%; } }
 @media (max-width: 782px) { .sc21-section-heading { flex-wrap: wrap; } .sc21-staff-toolbar { align-items: flex-start; flex-direction: column; } .sc21-staff-filters { width: 100%; } }
+@media (max-width: 782px) { .sc21-two-column { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 600px) { .sc21-admin-brand { align-items: flex-start; flex-direction: column; gap: .35rem; } .sc21-form-wrap { margin: 1rem 0; padding: 1rem; } .sc21-form-row, .sc21-admin-grid { grid-template-columns: 1fr; } .sc21-form-footer { align-items: flex-start; flex-direction: column; } .sc21-staff-filters input, .sc21-staff-filters select { width: 100%; } .sc21-section-heading .button { width: 100%; justify-content: center; } .sc21-quick-action, .sc21-delete { display: block; margin: .5rem 0 0; } .sc21-staff-actions .sc21-quick-action { display: inline; margin: 0; } }

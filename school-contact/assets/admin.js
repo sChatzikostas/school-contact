@@ -15,6 +15,15 @@
   const uuidPattern = /^[a-f0-9-]{36}$/i;
   let workflow = null;
   let editorProtection = null;
+  const isWordPressEmail = (value) => {
+    const email = String(value || '').trim();
+    const at = email.indexOf('@');
+    if (email.length < 6 || at < 1 || email.indexOf('@', at + 1) !== -1) return false;
+    const local = email.slice(0, at); const domain = email.slice(at + 1);
+    if (!/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i.test(local)) return false;
+    if (domain.length < 4 || !domain.includes('.') || domain.trim() !== domain || domain.startsWith('.') || domain.endsWith('.')) return false;
+    return domain.split('.').every((subdomain) => /^[a-z0-9-]+$/i.test(subdomain) && !subdomain.startsWith('-') && !subdomain.endsWith('-'));
+  };
 
   const removeTransfer = () => { if (!stateKey) return; try { sessionStorage.removeItem(stateKey); } catch (_) {} };
   const isStaffUrl = (url) => url.origin === window.location.origin && url.pathname === window.location.pathname && url.searchParams.get('page') === 'sc21-school-communication' && (url.searchParams.get('tab') || 'staff') === 'staff';
@@ -159,15 +168,6 @@
       const collapse = (value) => String(value || '').trim().replace(/\s+/g, ' ');
       const normalizeName = (value) => normalize(collapse(value));
       const normalizeEmail = (value) => String(value || '').trim().toLocaleLowerCase('en-US');
-      const isWordPressEmail = (value) => {
-        const email = String(value || '').trim();
-        const at = email.indexOf('@');
-        if (email.length < 6 || at < 1 || email.indexOf('@', at + 1) !== -1) return false;
-        const local = email.slice(0, at); const domain = email.slice(at + 1);
-        if (!/^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i.test(local)) return false;
-        if (domain.length < 4 || !domain.includes('.') || domain.trim() !== domain || domain.startsWith('.') || domain.endsWith('.')) return false;
-        return domain.split('.').every((subdomain) => /^[a-z0-9-]+$/i.test(subdomain) && !subdomain.startsWith('-') && !subdomain.endsWith('-'));
-      };
       const currentId = editorForm.querySelector('[name="staff_id"]')?.value || '';
       const syncDescriptions = (field) => {
         const ids = [field.matches('#sc21-official-email, #sc21-alternative-email') ? 'sc21-contact-email-help' : '', `${field.id}-error`, `${field.id}-warning`].filter((id) => id && editorForm.querySelector(`#${id}`));
@@ -282,13 +282,91 @@
     restoreTransfer();
   }
 
+  const settingsForm = document.querySelector('#sc21-general-settings-form');
+  if (settingsForm) {
+    const summary = settingsForm.querySelector('#sc21-settings-validation-summary');
+    const fields = {
+      school_name: { control: settingsForm.querySelector('#sc21-school-name'), message: 'Συμπληρώστε το όνομα του σχολείου.', maxLength: 150 },
+      principal_name: { control: settingsForm.querySelector('#sc21-principal-name'), message: 'Το ονοματεπώνυμο διευθυντή / διευθύντριας είναι πολύ μεγάλο.', maxLength: 120 },
+      admin_email: { control: settingsForm.querySelector('#sc21-admin-email'), message: 'Εισαγάγετε μια έγκυρη διεύθυνση email.', maxLength: 254 },
+    };
+    const baseDescriptions = new Map(Object.values(fields).map(({ control }) => [control, (control.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== `${control.id}-error`)]));
+    const syncDescriptions = (field) => {
+      const ids = [...(baseDescriptions.get(field) || [])];
+      if (settingsForm.querySelector(`#${field.id}-error`)) ids.push(`${field.id}-error`);
+      if (ids.length) field.setAttribute('aria-describedby', ids.join(' ')); else field.removeAttribute('aria-describedby');
+    };
+    const clearField = (key) => {
+      const field = fields[key]?.control; if (!field) return;
+      field.removeAttribute('aria-invalid');
+      settingsForm.querySelector(`#${field.id}-error`)?.remove();
+      syncDescriptions(field);
+    };
+    const showField = (key, message) => {
+      const field = fields[key]?.control; if (!field) return;
+      const id = `${field.id}-error`; let error = settingsForm.querySelector(`#${id}`);
+      if (!error) { error = document.createElement('span'); error.id = id; error.className = 'sc21-field-error'; field.insertAdjacentElement('afterend', error); }
+      error.textContent = message; field.setAttribute('aria-invalid', 'true'); syncDescriptions(field);
+    };
+    const textLength = (value) => Array.from(String(value || '')).length;
+    const validateSettings = (moveFocus) => {
+      const errors = new Map();
+      const school = fields.school_name.control; const principal = fields.principal_name.control; const email = fields.admin_email.control;
+      if (!school.value.trim()) errors.set('school_name', fields.school_name.message);
+      else if (textLength(school.value) > fields.school_name.maxLength) errors.set('school_name', 'Το όνομα του σχολείου δεν μπορεί να υπερβαίνει τους 150 χαρακτήρες.');
+      if (textLength(principal.value) > fields.principal_name.maxLength) errors.set('principal_name', fields.principal_name.message);
+      if (!email.value.trim()) errors.set('admin_email', 'Συμπληρώστε το email διεύθυνσης του σχολείου.');
+      else if (textLength(email.value) > fields.admin_email.maxLength) errors.set('admin_email', 'Η διεύθυνση email δεν μπορεί να υπερβαίνει τους 254 χαρακτήρες.');
+      else if (email.value !== email.value.trim() || !isWordPressEmail(email.value)) errors.set('admin_email', fields.admin_email.message);
+      Object.keys(fields).forEach(clearField); errors.forEach((message, key) => showField(key, message));
+      if (summary) summary.hidden = errors.size === 0;
+      settingsForm.dataset.sc21Validated = errors.size ? 'true' : '';
+      if (errors.size && moveFocus) {
+        const first = fields[errors.keys().next().value]?.control;
+        if (first) { first.scrollIntoView({ block: 'nearest' }); first.focus({ preventScroll: true }); }
+      }
+      return errors.size === 0;
+    };
+    const editable = Object.values(fields).map(({ control }) => control).filter(Boolean);
+    const snapshot = () => editable.map((control) => control.value);
+    const initialSnapshot = snapshot();
+    let submissionAccepted = false;
+    let beforeUnloadAttached = false;
+    const beforeUnload = (event) => { event.preventDefault(); event.returnValue = ''; };
+    const syncProtection = () => {
+      const dirty = snapshot().some((value, index) => value !== initialSnapshot[index]);
+      const shouldProtect = !submissionAccepted && dirty;
+      if (shouldProtect && !beforeUnloadAttached) { window.addEventListener('beforeunload', beforeUnload); beforeUnloadAttached = true; }
+      if (!shouldProtect && beforeUnloadAttached) { window.removeEventListener('beforeunload', beforeUnload); beforeUnloadAttached = false; }
+      return shouldProtect;
+    };
+    settingsForm.noValidate = true;
+    settingsForm.addEventListener('submit', (event) => {
+      if (!validateSettings(true)) { event.preventDefault(); syncProtection(); return; }
+      submissionAccepted = true;
+      syncProtection();
+    });
+    editable.forEach((control) => {
+      const update = () => { if (settingsForm.dataset.sc21Validated === 'true' || (summary && !summary.hidden)) validateSettings(false); syncProtection(); };
+      control.addEventListener('input', update);
+      control.addEventListener('change', update);
+    });
+  }
+
   document.addEventListener('click', (event) => {
     const link = event.target.closest('a[href]');
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     let url; try { url = new URL(link.href, window.location.origin); } catch (_) { return; }
     if (!isStaffUrl(url)) removeTransfer();
   });
-  document.querySelectorAll('.sc21-copy-shortcode').forEach((button) => { const feedback = document.querySelector('#sc21-copy-feedback'); button.addEventListener('click', async () => { try { await navigator.clipboard.writeText(button.dataset.sc21Copy || ''); button.textContent = 'Αντιγράφηκε'; if (feedback) feedback.textContent = 'Το shortcode αντιγράφηκε.'; } catch (_) { if (feedback) feedback.textContent = 'Δεν ήταν δυνατή η αντιγραφή. Επιλέξτε και αντιγράψτε το shortcode χειροκίνητα.'; } }); });
+  const openHelpAnchor = () => {
+    if (!window.location.hash) return;
+    let target; try { target = document.querySelector(window.location.hash); } catch (_) { return; }
+    if (target instanceof HTMLDetailsElement) target.open = true;
+  };
+  openHelpAnchor();
+  window.addEventListener('hashchange', openHelpAnchor);
+  document.querySelectorAll('.sc21-copy-shortcode').forEach((button) => { const feedback = document.getElementById(button.getAttribute('aria-describedby') || '') || document.querySelector('#sc21-copy-feedback'); button.addEventListener('click', async () => { try { await navigator.clipboard.writeText(button.dataset.sc21Copy || ''); button.textContent = 'Αντιγράφηκε'; if (feedback) feedback.textContent = 'Το shortcode αντιγράφηκε.'; } catch (_) { if (feedback) feedback.textContent = 'Δεν ήταν δυνατή η αντιγραφή. Επιλέξτε και αντιγράψτε το shortcode χειροκίνητα.'; } }); });
   document.querySelectorAll('.sc21-status').forEach((status) => { status.title = status.textContent.trim(); });
   document.querySelectorAll('.sc21-staff-table td:last-child').forEach((cell) => cell.querySelectorAll('a, button').forEach((control) => { const label = control.textContent.trim(); control.title = label; control.classList.remove('button-link', 'button-link-delete'); control.classList.add('sc21-icon-action'); const icon = label.includes('Επεξεργασία') ? 'dashicons-edit' : label.includes('Απενεργοποίηση') ? 'dashicons-remove' : 'dashicons-yes'; control.innerHTML = '<span class="dashicons ' + icon + '" aria-hidden="true"></span><span>' + label + '</span>'; }));
   if (editor && window.HTMLDialogElement) {

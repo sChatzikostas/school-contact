@@ -54,7 +54,7 @@ function sc21_send_communication( array $recipient, string $parent_name, string 
 			'────────────────────────',
 			__( 'Για να απαντήσετε στον γονέα, χρησιμοποιήστε την επιλογή «Απάντηση» του email σας.', 'school-contact' ),
 			'',
-			__( 'Απεστάλη μέσω της φόρμας επικοινωνίας του σχολείου.', 'school-contact' ),
+			__( 'Απεστάλη μέσω της φόρμας επικοινωνίας της σχολικής μονάδας.', 'school-contact' ),
 			'SchoolContact',
 		)
 	);

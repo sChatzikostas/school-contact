@@ -286,7 +286,7 @@
   if (settingsForm) {
     const summary = settingsForm.querySelector('#sc21-settings-validation-summary');
     const fields = {
-      school_name: { control: settingsForm.querySelector('#sc21-school-name'), message: 'Συμπληρώστε το όνομα του σχολείου.', maxLength: 150 },
+      school_name: { control: settingsForm.querySelector('#sc21-school-name'), message: 'Συμπληρώστε την ονομασία της σχολικής μονάδας.', maxLength: 150 },
       principal_name: { control: settingsForm.querySelector('#sc21-principal-name'), message: 'Το ονοματεπώνυμο διευθυντή / διευθύντριας είναι πολύ μεγάλο.', maxLength: 120 },
       admin_email: { control: settingsForm.querySelector('#sc21-admin-email'), message: 'Εισαγάγετε μια έγκυρη διεύθυνση email.', maxLength: 254 },
     };
@@ -313,9 +313,9 @@
       const errors = new Map();
       const school = fields.school_name.control; const principal = fields.principal_name.control; const email = fields.admin_email.control;
       if (!school.value.trim()) errors.set('school_name', fields.school_name.message);
-      else if (textLength(school.value) > fields.school_name.maxLength) errors.set('school_name', 'Το όνομα του σχολείου δεν μπορεί να υπερβαίνει τους 150 χαρακτήρες.');
+		else if (textLength(school.value) > fields.school_name.maxLength) errors.set('school_name', 'Η ονομασία της σχολικής μονάδας δεν μπορεί να υπερβαίνει τους 150 χαρακτήρες.');
       if (textLength(principal.value) > fields.principal_name.maxLength) errors.set('principal_name', fields.principal_name.message);
-      if (!email.value.trim()) errors.set('admin_email', 'Συμπληρώστε το email διεύθυνσης του σχολείου.');
+		if (!email.value.trim()) errors.set('admin_email', 'Συμπληρώστε το email διεύθυνσης της σχολικής μονάδας.');
       else if (textLength(email.value) > fields.admin_email.maxLength) errors.set('admin_email', 'Η διεύθυνση email δεν μπορεί να υπερβαίνει τους 254 χαρακτήρες.');
       else if (email.value !== email.value.trim() || !isWordPressEmail(email.value)) errors.set('admin_email', fields.admin_email.message);
       Object.keys(fields).forEach(clearField); errors.forEach((message, key) => showField(key, message));
@@ -366,7 +366,7 @@
   };
   openHelpAnchor();
   window.addEventListener('hashchange', openHelpAnchor);
-  document.querySelectorAll('.sc21-copy-shortcode').forEach((button) => { const feedback = document.getElementById(button.getAttribute('aria-describedby') || '') || document.querySelector('#sc21-copy-feedback'); button.addEventListener('click', async () => { try { await navigator.clipboard.writeText(button.dataset.sc21Copy || ''); button.textContent = 'Αντιγράφηκε'; if (feedback) feedback.textContent = 'Το shortcode αντιγράφηκε.'; } catch (_) { if (feedback) feedback.textContent = 'Δεν ήταν δυνατή η αντιγραφή. Επιλέξτε και αντιγράψτε το shortcode χειροκίνητα.'; } }); });
+  document.querySelectorAll('.sc21-copy-shortcode').forEach((button) => { const feedback = document.getElementById(button.getAttribute('aria-describedby') || '') || document.querySelector('#sc21-copy-feedback'); const originalLabel = button.textContent.trim(); button.addEventListener('click', async () => { try { await navigator.clipboard.writeText(button.dataset.sc21Copy || ''); button.textContent = 'Αντιγράφηκε'; if (feedback) { feedback.textContent = 'Το shortcode αντιγράφηκε.'; feedback.classList.remove('is-error'); } } catch (_) { button.textContent = originalLabel; if (feedback) { feedback.textContent = 'Δεν ήταν δυνατή η αντιγραφή. Μπορείτε να αντιγράψετε τον σύντομο κωδικό χειροκίνητα.'; feedback.classList.add('is-error'); } } }); });
   document.querySelectorAll('.sc21-status').forEach((status) => { status.title = status.textContent.trim(); });
   document.querySelectorAll('.sc21-staff-table td:last-child').forEach((cell) => cell.querySelectorAll('a, button').forEach((control) => { const label = control.textContent.trim(); control.title = label; control.classList.remove('button-link', 'button-link-delete'); control.classList.add('sc21-icon-action'); const icon = label.includes('Επεξεργασία') ? 'dashicons-edit' : label.includes('Απενεργοποίηση') ? 'dashicons-remove' : 'dashicons-yes'; control.innerHTML = '<span class="dashicons ' + icon + '" aria-hidden="true"></span><span>' + label + '</span>'; }));
   if (editor && window.HTMLDialogElement) {
@@ -375,7 +375,12 @@
     dialog.setAttribute('aria-labelledby', 'sc21-staff-editor-title');
     const close = editor.querySelector('.sc21-dialog-close');
     const cancel = editor.querySelector('.sc21-modal-footer-actions a');
-    const deleteForm = editor.querySelector('.sc21-delete');
+		const deleteForm = editor.querySelector('.sc21-delete');
+		const deleteConfirmation = editor.querySelector('.sc21-delete-confirmation');
+		const deleteTitle = editor.querySelector('.sc21-delete-confirmation-title');
+		const deleteName = deleteConfirmation?.querySelector('.sc21-delete-confirmation-name');
+		const deleteCancel = deleteConfirmation?.querySelector('.sc21-delete-cancel');
+		const deleteConfirm = deleteConfirmation?.querySelector('.sc21-delete-confirm');
     const confirmation = document.createElement('dialog');
     confirmation.className = 'sc21-unsaved-dialog';
     confirmation.setAttribute('aria-labelledby', 'sc21-unsaved-title');
@@ -385,6 +390,9 @@
     const discardChanges = confirmation.querySelector('.sc21-unsaved-discard');
     let confirmationOpen = false;
     let dismissalFocus = null;
+		let deleteConfirmationOpen = false;
+		let deleteFocus = null;
+		let deleteSubmissionConfirmed = false;
     const isVisible = (element) => Boolean(element && !element.hidden && !element.closest('[hidden]') && element.getClientRects().length);
     const trapFocus = (container) => container.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
@@ -394,6 +402,26 @@
       if (!event.shiftKey && index === controls.length - 1) { event.preventDefault(); controls[0]?.focus(); }
     });
     const closeEditor = () => { editorProtection?.allowNavigation(); dialog.close(); };
+		const closeDeleteConfirmation = () => {
+			if (!deleteConfirmationOpen) return;
+			deleteConfirmationOpen = false;
+			deleteConfirmation.hidden = true;
+			if (deleteTitle) deleteTitle.hidden = true;
+			editor.classList.remove('is-delete-confirming');
+			dialog.setAttribute('aria-labelledby', 'sc21-staff-editor-title');
+			if (isVisible(deleteFocus)) { try { deleteFocus.focus({ preventScroll: true }); } catch (_) { deleteFocus.focus(); } }
+		};
+		const requestDelete = () => {
+			if (!deleteConfirmation || deleteConfirmationOpen) return;
+			deleteConfirmationOpen = true;
+			deleteFocus = deleteForm?.querySelector('button') || document.activeElement;
+			if (deleteName) deleteName.textContent = deleteConfirmation.dataset.sc21DeleteName || '';
+			if (deleteTitle) deleteTitle.hidden = false;
+			deleteConfirmation.hidden = false;
+			editor.classList.add('is-delete-confirming');
+			dialog.setAttribute('aria-labelledby', 'sc21-delete-confirmation-title');
+			deleteCancel?.focus();
+		};
     const requestDismissal = () => {
       if (!editorProtection?.isDirty()) { closeEditor(); return; }
       if (confirmationOpen) return;
@@ -408,9 +436,12 @@
     trapFocus(confirmation);
     dialog.showModal();
     const first = dialog.querySelector('input:not([type="hidden"]), select'); if (first) first.focus();
-    if (close) close.addEventListener('click', requestDismissal);
+    if (close) close.addEventListener('click', () => {
+      if (deleteConfirmationOpen) { closeDeleteConfirmation(); return; }
+      requestDismissal();
+    });
     if (cancel) cancel.addEventListener('click', (event) => { event.preventDefault(); event.stopImmediatePropagation(); requestDismissal(); }, true);
-    dialog.addEventListener('cancel', (event) => { if (editorProtection?.isDirty()) { event.preventDefault(); requestDismissal(); } });
+		dialog.addEventListener('cancel', (event) => { if (deleteConfirmationOpen) { event.preventDefault(); closeDeleteConfirmation(); return; } if (editorProtection?.isDirty()) { event.preventDefault(); requestDismissal(); } });
     confirmation.addEventListener('cancel', (event) => { event.preventDefault(); window.requestAnimationFrame(() => confirmation.close('continue')); });
     continueEditing?.addEventListener('click', () => confirmation.close('continue'));
     discardChanges?.addEventListener('click', () => confirmation.close('discard'));
@@ -420,7 +451,18 @@
       if (confirmation.returnValue === 'discard') { closeEditor(); return; }
       if (isVisible(dismissalFocus)) { try { dismissalFocus.focus({ preventScroll: true }); } catch (_) { dismissalFocus.focus(); } }
     });
-    deleteForm?.addEventListener('submit', (event) => { if (!event.defaultPrevented) editorProtection?.allowNavigation(); });
+		if (deleteForm) {
+			deleteForm.onsubmit = null;
+			deleteForm.addEventListener('submit', (event) => { event.preventDefault(); requestDelete(); });
+		}
+		deleteCancel?.addEventListener('click', closeDeleteConfirmation);
+		deleteConfirm?.addEventListener('click', () => {
+			if (!deleteForm || !deleteConfirmationOpen || deleteSubmissionConfirmed) return;
+			deleteSubmissionConfirmed = true;
+			deleteConfirm.disabled = true;
+			editorProtection?.allowNavigation();
+			deleteForm.submit();
+		});
     dialog.addEventListener('close', () => { if (!workflow) return; editorProtection?.allowNavigation(); workflow.writeTransfer(workflow.returnFocus()); window.location.href = workflow.returnToStaff().toString(); });
   }
 })();

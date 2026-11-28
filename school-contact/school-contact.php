@@ -79,6 +79,7 @@ function sc21_deactivate(): void {
 register_activation_hook( __FILE__, 'sc21_activate' );
 register_deactivation_hook( __FILE__, 'sc21_deactivate' );
 
+require_once __DIR__ . '/release-check.php';
 require_once __DIR__ . '/admin.php';
 require_once __DIR__ . '/mail.php';
 require_once __DIR__ . '/form.php';

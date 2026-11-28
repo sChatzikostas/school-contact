@@ -6,7 +6,7 @@ Connecting schools and families. [Ελληνικά](README.el.md)
 
 Repository: <https://github.com/sChatzikostas/school-contact>
 
-SchoolContact 1.0.0 is available. Version 1.1.0 is in release preparation; published installation packages are available from the [GitHub Releases page](https://github.com/sChatzikostas/school-contact/releases).
+Installation packages for published SchoolContact releases are available from the [GitHub Releases page](https://github.com/sChatzikostas/school-contact/releases).
 
 A small WordPress plugin for parent/guardian communication with school
 administration and school-unit staff. The public interface and administration screens
@@ -53,6 +53,13 @@ prevent the check without affecting the plugin's core functionality.
 
 After publication, send a controlled test message and verify receipt through the
 configured mail system.
+
+## Updating
+
+Before updating, create a backup and use a published installation ZIP through
+the normal WordPress plugin update or replacement workflow. Then confirm the
+configuration and send a controlled test message through the configured mail
+system.
 
 The public privacy wording is provisional and should be approved by the school
 unit before publication. Alternative staff addresses require school-unit approval,

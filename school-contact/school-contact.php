@@ -3,7 +3,7 @@
  * Plugin Name: SchoolContact
  * Plugin URI: https://github.com/sChatzikostas/school-contact
  * Description: Secure communication between schools and families.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Sotiris Chatzikostas
  * Author URI: https://www.linkedin.com/in/sotiris-chatzikostas/
  * License: GPL-2.0-or-later
